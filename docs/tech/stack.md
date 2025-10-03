@@ -36,8 +36,8 @@
 ## Инфраструктура
 
 - **Deploy:** Vercel (один проект)
-- **ENV:**  
-  - `TURSO_DATABASE_URL`  
+- **ENV:**
+  - `TURSO_DATABASE_URL`
   - `TURSO_AUTH_TOKEN`
 - **Миграции:** запускаются отдельным шагом (npm-скрипт или CI)
 
