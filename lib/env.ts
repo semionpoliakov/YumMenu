@@ -1,17 +1,13 @@
 import { z } from 'zod';
 
 const envSchema = z.object({
-  TURSO_DATABASE_URL: z
-    .string({ invalid_type_error: 'TURSO_DATABASE_URL must be a string.' })
-    .url('TURSO_DATABASE_URL must be a valid URL.'),
-  TURSO_AUTH_TOKEN: z
-    .string({ invalid_type_error: 'TURSO_AUTH_TOKEN must be a string.' })
-    .min(1, 'TURSO_AUTH_TOKEN is required.'),
+  DATABASE_URL: z
+    .string({ invalid_type_error: 'DATABASE_URL must be a string.' })
+    .url('DATABASE_URL must be a valid URL.'),
 });
 
 const parsed = envSchema.safeParse({
-  TURSO_DATABASE_URL: process.env.TURSO_DATABASE_URL,
-  TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN,
+  DATABASE_URL: process.env.DATABASE_URL,
 });
 
 if (!parsed.success) {

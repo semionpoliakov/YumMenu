@@ -1,13 +1,10 @@
-import { createClient } from '@libsql/client';
-import { drizzle } from 'drizzle-orm/libsql';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 
 import { env } from '@/lib/env';
 
-const libsql = createClient({
-  url: env.TURSO_DATABASE_URL,
-  authToken: env.TURSO_AUTH_TOKEN,
-});
+const pgClient = postgres(env.DATABASE_URL, { max: 1 });
 
-export const db = drizzle(libsql);
+export const db = drizzle(pgClient);
 
-export const libsqlClient = libsql;
+export const postgresClient = pgClient;

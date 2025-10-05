@@ -8,13 +8,13 @@ YumMenu — планировщик меню: собирает блюда на н
 - Tailwind CSS + shadcn/ui + Radix UI
 - TanStack Query
 - ts-rest + Zod
-- Drizzle ORM + Turso (LibSQL)
+- Drizzle ORM + Supabase (Postgres)
 - TypeScript, pnpm
 
 ## ENV
 
 Основной `.env` находится в корне проекта (см. `.env.example`).
-Важно заполнить: `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`.
+Важно заполнить: `DATABASE_URL` (строка подключения к Supabase Postgres).
 
 ## Запуск
 

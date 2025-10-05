@@ -21,10 +21,10 @@
 
 ## Data Layer
 
-- **База:** Turso (LibSQL)
+- **База:** Supabase (Postgres)
 - **ORM:** Drizzle ORM
 - **Миграции:** drizzle-kit
-- **Клиент:** @libsql/client
+- **Клиент:** postgres (для drizzle-postgres)
 - **ID:** ulid или nanoid
 
 ## Contracts & Types
@@ -37,8 +37,7 @@
 
 - **Deploy:** Vercel (один проект)
 - **ENV:**
-  - `TURSO_DATABASE_URL`
-  - `TURSO_AUTH_TOKEN`
+  - `DATABASE_URL`
 - **Миграции:** запускаются отдельным шагом (npm-скрипт или CI)
 
 ## Структура(пример)
@@ -86,7 +85,7 @@
 - `@tanstack/react-query`
 - `react-hook-form`, `@hookform/resolvers`
 - `tailwindcss`, `shadcn/ui`, `lucide-react`
-- `drizzle-orm`, `drizzle-kit`, `@libsql/client`
+- `drizzle-orm`, `drizzle-kit`, `postgres`
 - `@ts-rest/core`, `@ts-rest/next`, `@ts-rest/react-query`
 - `nanoid`
 

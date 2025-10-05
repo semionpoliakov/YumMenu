@@ -1,4 +1,4 @@
-import { db, libsqlClient } from './client';
+import { db, postgresClient } from './client';
 import { dishes, ingredients } from './schema';
 
 async function clearTables() {
@@ -16,7 +16,7 @@ async function run() {
     process.exitCode = 1;
   } finally {
     try {
-      libsqlClient.close();
+      await postgresClient.end({ timeout: 5 });
     } catch (closeError) {
       console.error('Failed to close database connection cleanly:', closeError);
     }
