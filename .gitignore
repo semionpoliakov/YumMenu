@@ -3,5 +3,4 @@ node_modules
 dist
 .env*
 !.env.example
-pnpm-lock.yaml
 tsconfig.tsbuildinfo
