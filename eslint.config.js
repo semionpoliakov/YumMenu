@@ -24,7 +24,7 @@ module.exports = (async () => {
 
   return tseslint.config(
     {
-      ignores: ['.next/**', 'node_modules/**', 'dist/**', 'eslint.config.js'],
+      ignores: ['.next/**', 'node_modules/**', 'dist/**', 'eslint.config.js', 'pnpm-lock.yaml'],
     },
     {
       files: ['**/*.{ts,tsx,js,jsx}'],
