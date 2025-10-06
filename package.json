@@ -11,6 +11,8 @@
     "format:write": "prettier --write .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit up",
+    "db:studio": "drizzle-kit studio",
+    "db:push": "drizzle-kit push",
     "db:seed": "tsx --tsconfig tsconfig.json db/seed.ts",
     "typecheck": "tsc --noEmit",
     "db:reset": "tsx --tsconfig tsconfig.json db/reset.ts"

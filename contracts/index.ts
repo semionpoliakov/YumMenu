@@ -1,6 +1,198 @@
 import { initContract } from '@ts-rest/core';
 import { z } from 'zod';
 
+export const Unit = z.enum(['pcs', 'g', 'ml']);
+export const MealType = z.enum(['breakfast', 'lunch', 'dinner', 'snack', 'dessert']);
+
+type MealTypeValue = z.infer<typeof MealType>;
+
+export const IngredientCreate = z.object({
+  name: z.string().trim().min(1),
+  unit: Unit,
+  isActive: z.boolean().optional(),
+});
+
+export const IngredientUpdate = z.object({
+  name: z.string().trim().min(1).optional(),
+  unit: Unit.optional(),
+  isActive: z.boolean().optional(),
+});
+
+export const Ingredient = z.object({
+  id: z.string(),
+  name: z.string(),
+  unit: Unit,
+  isActive: z.boolean(),
+  createdAt: z.string(),
+});
+
+export const DishIngredientRef = z.object({
+  ingredientId: z.string(),
+  quantity: z.number().positive(),
+  unit: Unit,
+});
+
+export const DishCreate = z.object({
+  name: z.string().trim().min(1),
+  mealType: MealType,
+  isActive: z.boolean().optional(),
+  tags: z.array(z.string()).optional(),
+  ingredients: z.array(DishIngredientRef).min(1),
+});
+
+export const DishUpdate = DishCreate.partial();
+
+export const Dish = z.object({
+  id: z.string(),
+  name: z.string(),
+  mealType: MealType,
+  isActive: z.boolean(),
+  tags: z.array(z.string()),
+  createdAt: z.string(),
+});
+
+export const DishWithIngredients = Dish.extend({
+  ingredients: z.array(DishIngredientRef),
+});
+
+export const FridgeItemCreate = z.object({
+  ingredientId: z.string(),
+  quantity: z.number().nonnegative(),
+  unit: Unit,
+});
+
+export const FridgeItemUpdate = z.object({
+  quantity: z.number().nonnegative(),
+});
+
+export const FridgeItem = z.object({
+  id: z.string(),
+  ingredientId: z.string(),
+  quantity: z.number().nonnegative(),
+  unit: Unit,
+  createdAt: z.string(),
+});
+
+export const Menu = z.object({
+  id: z.string(),
+  status: z.enum(['draft', 'final']),
+  createdAt: z.string(),
+});
+
+export const MenuItem = z.object({
+  id: z.string(),
+  menuId: z.string(),
+  mealType: MealType,
+  dishId: z.string(),
+  locked: z.boolean(),
+  cooked: z.boolean(),
+});
+
+export const ShoppingListItem = z.object({
+  id: z.string(),
+  shoppingListId: z.string(),
+  ingredientId: z.string(),
+  quantity: z.number().nonnegative(),
+  unit: Unit,
+  bought: z.boolean(),
+});
+
+export const ShoppingList = z.object({
+  id: z.string(),
+  menuId: z.string(),
+  createdAt: z.string(),
+});
+
+export const ShoppingListWithItems = ShoppingList.extend({
+  items: z.array(ShoppingListItem),
+});
+
+const slotCountSchema = z.number().int().nonnegative();
+
+const TotalSlotsSchema = z
+  .object({
+    breakfast: slotCountSchema.optional(),
+    lunch: slotCountSchema.optional(),
+    dinner: slotCountSchema.optional(),
+    snack: slotCountSchema.optional(),
+    dessert: slotCountSchema.optional(),
+  })
+  .partial()
+  .transform((value) => {
+    const result: Partial<Record<MealTypeValue, number>> = {};
+    (Object.entries(value) as [MealTypeValue, number | undefined][]).forEach(([key, quantity]) => {
+      if (typeof quantity === 'number') {
+        result[key] = quantity;
+      }
+    });
+    return result;
+  });
+
+const GenerateRequestBase = z
+  .object({
+    totalSlots: TotalSlotsSchema,
+    requiredDishes: z.array(z.string()).optional(),
+    requiredIngredients: z.array(z.string()).optional(),
+    includeTags: z.array(z.string()).optional(),
+  })
+  .strict();
+
+export const GenerateRequest = GenerateRequestBase.superRefine((input, ctx) => {
+  if (Object.keys(input.totalSlots).length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'totalSlots must not be empty',
+      path: ['totalSlots'],
+    });
+  }
+});
+
+export const GenerateResponse = z.object({
+  menu: Menu,
+  items: z.array(MenuItem),
+  shoppingList: ShoppingList.extend({
+    items: z.array(ShoppingListItem),
+  }),
+});
+
+export type Unit = z.infer<typeof Unit>;
+export type MealType = z.infer<typeof MealType>;
+export type IngredientCreateInput = z.infer<typeof IngredientCreate>;
+export type IngredientUpdateInput = z.infer<typeof IngredientUpdate>;
+export type IngredientDto = z.infer<typeof Ingredient>;
+export type DishIngredientRefDto = z.infer<typeof DishIngredientRef>;
+export type DishCreateInput = z.infer<typeof DishCreate>;
+export type DishUpdateInput = z.infer<typeof DishUpdate>;
+export type DishDto = z.infer<typeof Dish>;
+export type DishWithIngredientsDto = z.infer<typeof DishWithIngredients>;
+export type FridgeItemCreateInput = z.infer<typeof FridgeItemCreate>;
+export type FridgeItemUpdateInput = z.infer<typeof FridgeItemUpdate>;
+export type FridgeItemDto = z.infer<typeof FridgeItem>;
+export type MenuDto = z.infer<typeof Menu>;
+export type MenuItemDto = z.infer<typeof MenuItem>;
+export type ShoppingListItemDto = z.infer<typeof ShoppingListItem>;
+export type ShoppingListDto = z.infer<typeof ShoppingList>;
+export type ShoppingListWithItemsDto = z.infer<typeof ShoppingListWithItems>;
+export type GenerateRequestInput = z.infer<typeof GenerateRequestBase>;
+export type GenerateResponseDto = z.infer<typeof GenerateResponse>;
+
+export const ErrorCode = z.enum([
+  'VALIDATION_ERROR',
+  'NOT_FOUND',
+  'DUPLICATE_NAME',
+  'HAS_DEPENDENCIES',
+  'INSUFFICIENT_DISHES',
+  'UNKNOWN',
+]);
+
+export const ErrorResponse = z.object({
+  code: ErrorCode,
+  message: z.string(),
+});
+
+export type ErrorCodeType = z.infer<typeof ErrorCode>;
+export type ErrorResponseDto = z.infer<typeof ErrorResponse>;
+
 const c = initContract();
 
 export const contracts = c.router({
@@ -8,12 +200,224 @@ export const contracts = c.router({
     method: 'GET',
     path: '/api/health',
     responses: {
-      200: z.object({
-        ok: z.boolean(),
-      }),
+      200: z.object({ ok: z.literal(true) }),
     },
     summary: 'Health check endpoint',
   },
+  ingredients: c.router({
+    list: {
+      method: 'GET',
+      path: '/api/ingredients',
+      query: z.object({
+        active: z.enum(['true', 'false', 'all']).optional(),
+      }),
+      responses: {
+        200: z.array(Ingredient),
+        400: ErrorResponse,
+      },
+    },
+    create: {
+      method: 'POST',
+      path: '/api/ingredients',
+      body: IngredientCreate,
+      responses: {
+        201: Ingredient,
+        400: ErrorResponse,
+        409: ErrorResponse,
+      },
+    },
+    update: {
+      method: 'PATCH',
+      path: '/api/ingredients/:id',
+      body: IngredientUpdate,
+      responses: {
+        200: Ingredient,
+        400: ErrorResponse,
+        404: ErrorResponse,
+        409: ErrorResponse,
+      },
+    },
+    delete: {
+      method: 'DELETE',
+      path: '/api/ingredients/:id',
+      responses: {
+        204: z.null(),
+        404: ErrorResponse,
+        409: ErrorResponse,
+      },
+    },
+  }),
+  dishes: c.router({
+    list: {
+      method: 'GET',
+      path: '/api/dishes',
+      responses: {
+        200: z.array(DishWithIngredients),
+      },
+    },
+    create: {
+      method: 'POST',
+      path: '/api/dishes',
+      body: DishCreate,
+      responses: {
+        201: Dish,
+        400: ErrorResponse,
+        409: ErrorResponse,
+      },
+    },
+    update: {
+      method: 'PATCH',
+      path: '/api/dishes/:id',
+      body: DishUpdate,
+      responses: {
+        200: Dish,
+        400: ErrorResponse,
+        404: ErrorResponse,
+        409: ErrorResponse,
+      },
+    },
+    delete: {
+      method: 'DELETE',
+      path: '/api/dishes/:id',
+      responses: {
+        204: z.null(),
+        404: ErrorResponse,
+        409: ErrorResponse,
+      },
+    },
+  }),
+  fridge: c.router({
+    list: {
+      method: 'GET',
+      path: '/api/fridge',
+      responses: {
+        200: z.array(FridgeItem),
+      },
+    },
+    upsert: {
+      method: 'POST',
+      path: '/api/fridge',
+      body: FridgeItemCreate,
+      responses: {
+        200: FridgeItem,
+        400: ErrorResponse,
+        404: ErrorResponse,
+      },
+    },
+    update: {
+      method: 'PATCH',
+      path: '/api/fridge/:id',
+      body: FridgeItemUpdate,
+      responses: {
+        200: FridgeItem,
+        400: ErrorResponse,
+        404: ErrorResponse,
+      },
+    },
+    delete: {
+      method: 'DELETE',
+      path: '/api/fridge/:id',
+      responses: {
+        204: z.null(),
+        404: ErrorResponse,
+      },
+    },
+  }),
+  menus: c.router({
+    generate: {
+      method: 'POST',
+      path: '/api/menus/generate',
+      body: GenerateRequest,
+      responses: {
+        201: GenerateResponse,
+        400: ErrorResponse,
+        404: ErrorResponse,
+        409: ErrorResponse,
+      },
+    },
+    get: {
+      method: 'GET',
+      path: '/api/menus/:id',
+      responses: {
+        200: z.object({
+          menu: Menu,
+          items: z.array(MenuItem),
+          shoppingList: ShoppingList.extend({ items: z.array(ShoppingListItem) }),
+        }),
+        404: ErrorResponse,
+      },
+    },
+    regenerate: {
+      method: 'POST',
+      path: '/api/menus/:id/regenerate',
+      body: GenerateRequest,
+      responses: {
+        200: GenerateResponse,
+        400: ErrorResponse,
+        404: ErrorResponse,
+        409: ErrorResponse,
+      },
+    },
+    patchItem: {
+      method: 'PATCH',
+      path: '/api/menus/:id/items/:itemId',
+      body: z.object({ cooked: z.boolean() }),
+      responses: {
+        200: MenuItem,
+        400: ErrorResponse,
+        404: ErrorResponse,
+      },
+    },
+    lockItems: {
+      method: 'POST',
+      path: '/api/menus/:id/lock',
+      body: z.object({
+        itemIds: z.array(z.string()),
+        locked: z.boolean(),
+      }),
+      responses: {
+        200: z.array(MenuItem),
+        400: ErrorResponse,
+        404: ErrorResponse,
+      },
+    },
+    delete: {
+      method: 'DELETE',
+      path: '/api/menus/:id',
+      responses: {
+        204: z.null(),
+        404: ErrorResponse,
+      },
+    },
+  }),
+  shoppingLists: c.router({
+    get: {
+      method: 'GET',
+      path: '/api/shopping-lists/:id',
+      responses: {
+        200: ShoppingListWithItems,
+        404: ErrorResponse,
+      },
+    },
+    patchItem: {
+      method: 'PATCH',
+      path: '/api/shopping-lists/:id/items/:itemId',
+      body: z.object({ bought: z.boolean() }),
+      responses: {
+        200: ShoppingListItem,
+        400: ErrorResponse,
+        404: ErrorResponse,
+      },
+    },
+    delete: {
+      method: 'DELETE',
+      path: '/api/shopping-lists/:id',
+      responses: {
+        204: z.null(),
+        404: ErrorResponse,
+      },
+    },
+  }),
 });
 
 export type AppContract = typeof contracts;

@@ -3,8 +3,24 @@ import postgres from 'postgres';
 
 import { env } from '@/lib/env';
 
-const pgClient = postgres(env.DATABASE_URL, { max: 1 });
+import * as schema from './schema';
 
-export const db = drizzle(pgClient);
+const NUMERIC_TYPE = 1700;
 
+const pgClient = postgres(env.DATABASE_URL, {
+  max: 1,
+  transform: {
+    value: {
+      from: (value: unknown, column) => {
+        if (column.type === NUMERIC_TYPE) {
+          const numericValue = Number(value);
+          return Number.isNaN(numericValue) ? value : numericValue;
+        }
+        return value;
+      },
+    },
+  },
+});
+
+export const db = drizzle(pgClient, { schema });
 export const postgresClient = pgClient;

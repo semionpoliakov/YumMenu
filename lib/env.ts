@@ -4,10 +4,14 @@ const envSchema = z.object({
   DATABASE_URL: z
     .string({ invalid_type_error: 'DATABASE_URL must be a string.' })
     .url('DATABASE_URL must be a valid URL.'),
+  DIRECT_DATABASE_URL: z
+    .string({ invalid_type_error: 'DIRECT_DATABASE_URL must be a string.' })
+    .url('DIRECT_DATABASE_URL must be a valid URL.'),
 });
 
 const parsed = envSchema.safeParse({
   DATABASE_URL: process.env.DATABASE_URL,
+  DIRECT_DATABASE_URL: process.env.DIRECT_DATABASE_URL,
 });
 
 if (!parsed.success) {
