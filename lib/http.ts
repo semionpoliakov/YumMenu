@@ -2,9 +2,9 @@ import { createError } from './errors';
 
 import type { ZodSchema } from 'zod';
 
-export const parseJson = async <T = unknown>(request: Request): Promise<T> => {
+export const parseJson = async (request: Request): Promise<unknown> => {
   try {
-    return (await request.json()) as T;
+    return (await request.json()) as unknown;
   } catch (error) {
     if (error instanceof SyntaxError) {
       throw createError('VALIDATION_ERROR', 'Invalid JSON body');
