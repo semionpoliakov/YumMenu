@@ -41,14 +41,14 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: check DB migrations
+        run: |
+          pnpm db:check
+
       - name: Build
         env:
           NODE_ENV: production
         run: pnpm build
-
-      - name: check DB migrations
-        run: |
-          pnpm db:check
 
       - name: Trigger Vercel Production Deploy
         run: |
