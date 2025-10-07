@@ -13,7 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      DIRECT_DATABASE_URL: ${{ secrets.DIRECT_DATABASE_URL }}
 
     steps:
       - name: Checkout
@@ -47,10 +46,9 @@ jobs:
           NODE_ENV: production
         run: pnpm build
 
-      - name: Apply DB migrations
+      - name: check DB migrations
         run: |
-          pnpm db:generate
-          pnpm db:migrate
+          pnpm db:check
 
       - name: Trigger Vercel Production Deploy
         run: |

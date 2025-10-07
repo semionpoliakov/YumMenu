@@ -14,7 +14,7 @@ YumMenu — планировщик меню: собирает блюда на н
 ## ENV
 
 Основной `.env` находится в корне проекта (см. `.env.example`).
-Важно заполнить: `DATABASE_URL` (строка подключения к Supabase Postgres) и `DIRECT_DATABASE_URL` (для миграций).
+Важно заполнить: `DATABASE_URL` (строка подключения к Supabase Postgres).
 
 ## Запуск
 
