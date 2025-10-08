@@ -1,9 +1,9 @@
+import { DEFAULT_USER_ID } from '@/domain/users/constants';
+
 import { db, postgresClient } from './client';
 import { dishes, dishIngredients, ingredients } from './schema';
 
-import type { Unit } from '@/contracts';
-
-const DEFAULT_USER_ID = 'demo-user';
+import type { DishTag, Unit } from '@/contracts';
 
 async function seedIngredients() {
   const pantryStaples: Array<{ id: string; name: string; unit: Unit }> = [
@@ -37,6 +37,7 @@ async function seedIngredients() {
 
 async function seedDishes(ingredientIds: string[]) {
   const simpleDishId = 'dish-tomato-garlic-pasta';
+  const tags: DishTag[] = ['salad'];
 
   await db
     .insert(dishes)
@@ -46,7 +47,8 @@ async function seedDishes(ingredientIds: string[]) {
       mealType: 'dinner',
       userId: DEFAULT_USER_ID,
       isActive: true,
-      tags: ['pasta'],
+      tags,
+      description: 'Simple tomato and garlic pasta.',
     })
     .onConflictDoUpdate({
       target: dishes.id,
@@ -54,7 +56,8 @@ async function seedDishes(ingredientIds: string[]) {
         name: 'Tomato Garlic Pasta',
         mealType: 'dinner',
         isActive: true,
-        tags: ['pasta'],
+        tags,
+        description: 'Simple tomato and garlic pasta.',
       },
     });
 

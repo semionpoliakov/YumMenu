@@ -12,15 +12,12 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
-export const unitEnum = pgEnum('unit', ['pcs', 'g', 'ml']);
-export const mealTypeEnum = pgEnum('meal_type', [
-  'breakfast',
-  'lunch',
-  'dinner',
-  'snack',
-  'dessert',
-]);
-export const statusEnum = pgEnum('status', ['draft', 'final']);
+import { DishTagEnum, MealTypeEnum, StatusEnum, UnitEnum } from '../domain/common/enums';
+
+export const unitEnum = pgEnum('unit', UnitEnum);
+export const mealTypeEnum = pgEnum('meal_type', MealTypeEnum);
+export const statusEnum = pgEnum('status', StatusEnum);
+export const dishTagEnum = pgEnum('dish_tag', DishTagEnum);
 
 const ts = (name: string) =>
   timestamp(name, { withTimezone: false, mode: 'date' })
@@ -50,10 +47,11 @@ export const dishes = pgTable(
     name: text('name').notNull(),
     mealType: mealTypeEnum('meal_type').notNull(),
     isActive: boolean('is_active').notNull().default(true),
-    tags: text('tags')
+    description: text('description').notNull().default(''),
+    tags: dishTagEnum('tags')
       .array()
       .notNull()
-      .default(sql`ARRAY[]::text[]`),
+      .default(sql`'{}'::dish_tag[]`),
     createdAt: ts('created_at'),
   },
   (table) => [

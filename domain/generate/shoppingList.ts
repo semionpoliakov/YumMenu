@@ -1,77 +1,66 @@
 import type {
-  DishIngredientRefDto,
+  DishIngredientDto,
   FridgeItemDto,
   MenuItemDto,
   ShoppingListItemDto,
   Unit,
 } from '@/contracts';
 
-export type DishIngredientLookup = Record<string, DishIngredientRefDto[]>;
+export type DishIngredientLookup = Record<string, DishIngredientDto[]>;
 
 export type CalculateShoppingListArgs = {
   chosenDishes: Array<Pick<MenuItemDto, 'dishId'>>;
   dishIngredients: DishIngredientLookup;
   fridge: FridgeItemDto[];
+  useFridge?: boolean;
 };
 
 export type ShoppingListAggregation = Array<
   Pick<ShoppingListItemDto, 'ingredientId' | 'quantity' | 'unit'>
 >;
 
-const unitFallback = (
-  unitFromDish: Unit | undefined,
-  unitFromFridge: Unit | undefined,
-): Unit | undefined => {
-  if (unitFromDish) {
-    return unitFromDish;
-  }
-  return unitFromFridge;
-};
-
 export const calculateShoppingList = ({
   chosenDishes,
   dishIngredients,
   fridge,
+  useFridge = true,
 }: CalculateShoppingListArgs): ShoppingListAggregation => {
-  const totals = new Map<string, { quantity: number; unit?: Unit }>();
+  // Шаг 1: Собираем общее количество нужных ингредиентов из всех блюд
+  const totals = new Map<string, { quantity: number; unit: Unit }>();
 
-  chosenDishes.forEach(({ dishId }) => {
+  for (const { dishId } of chosenDishes) {
     const ingredients = dishIngredients[dishId];
-    if (!ingredients) {
-      return;
-    }
+    if (!ingredients) continue;
 
-    ingredients.forEach((ingredient) => {
+    for (const ingredient of ingredients) {
       const existing = totals.get(ingredient.ingredientId);
-      const nextQuantity = (existing?.quantity ?? 0) + ingredient.quantity;
-      const nextUnit = unitFallback(ingredient.unit, existing?.unit);
-      totals.set(ingredient.ingredientId, { quantity: nextQuantity, unit: nextUnit });
-    });
-  });
-
-  if (totals.size === 0) {
-    return [];
+      totals.set(ingredient.ingredientId, {
+        quantity: (existing?.quantity ?? 0) + ingredient.qtyPerServing,
+        unit: ingredient.unit,
+      });
+    }
   }
 
-  const fridgeIndex = new Map<string, { quantity: number; unit: Unit }>();
-  fridge.forEach((item) => {
-    fridgeIndex.set(item.ingredientId, { quantity: item.quantity, unit: item.unit });
-  });
+  if (!useFridge) {
+    return Array.from(totals.entries()).map(([ingredientId, { quantity, unit }]) => ({
+      ingredientId,
+      quantity,
+      unit,
+    }));
+  }
 
-  const result: ShoppingListAggregation = [];
-  totals.forEach((value, ingredientId) => {
-    const fridgeEntry = fridgeIndex.get(ingredientId);
-    const available = fridgeEntry?.quantity ?? 0;
-    const needed = value.quantity - available;
-    if (needed <= 0) {
-      return;
-    }
-    const unit = unitFallback(value.unit, fridgeEntry?.unit);
-    if (!unit) {
-      return;
-    }
-    result.push({ ingredientId, quantity: needed, unit });
-  });
+  // Шаг 2: Создаём индекс холодильника для быстрого поиска
+  const fridgeMap = new Map(
+    fridge.map((item) => [item.ingredientId, { quantity: item.quantity, unit: item.unit }]),
+  );
 
-  return result;
+  // Шаг 3: Вычисляем недостающие ингредиенты (вычитаем холодильник)
+  return Array.from(totals.entries())
+    .map(([ingredientId, { quantity, unit }]) => {
+      const available = fridgeMap.get(ingredientId)?.quantity ?? 0;
+      const needed = quantity - available;
+      // Возвращаем только то, чего не хватает
+      return needed > 0 ? { ingredientId, quantity: needed, unit } : null;
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
 };

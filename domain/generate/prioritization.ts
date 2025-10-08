@@ -1,8 +1,12 @@
-import type { DishWithIngredientsDto, MealType } from '@/contracts';
+import type { DishTag, DishWithIngredientsDto, MealType } from '@/contracts';
+
+// ============================================================================
+// buildDishPool - фильтрация блюд по критериям
+// ============================================================================
 
 export type BuildDishPoolArgs = {
   mealType: MealType;
-  tags?: string[];
+  tags?: DishTag[];
   isActiveOnly?: boolean;
   dishes: DishWithIngredientsDto[];
 };
@@ -13,26 +17,27 @@ export const buildDishPool = ({
   tags,
   isActiveOnly = true,
 }: BuildDishPoolArgs): DishWithIngredientsDto[] => {
-  const normalizedTags = tags?.map((tag) => tag.trim().toLowerCase()).filter(Boolean);
-  const hasTagFilter = normalizedTags && normalizedTags.length > 0;
+  // Создаём Set тегов только если теги переданы
+  const tagSet = tags && tags.length > 0 ? new Set(tags) : null;
 
   return dishes.filter((dish) => {
-    if (dish.mealType !== mealType) {
-      return false;
-    }
+    // Проверяем тип приёма пищи
+    if (dish.mealType !== mealType) return false;
 
-    if (isActiveOnly && !dish.isActive) {
-      return false;
-    }
+    // Проверяем активность блюда
+    if (isActiveOnly && !dish.isActive) return false;
 
-    if (!hasTagFilter) {
-      return true;
-    }
+    // Если тегов нет - блюдо подходит
+    if (!tagSet) return true;
 
-    const dishTags = dish.tags.map((tag) => tag.toLowerCase());
-    return normalizedTags.some((tag) => dishTags.includes(tag));
+    // Проверяем, есть ли хотя бы один совпадающий тег
+    return dish.tags.some((tag) => tagSet.has(tag));
   });
 };
+
+// ============================================================================
+// Скоринг блюд по наличию ингредиентов в холодильнике
+// ============================================================================
 
 export type FridgeIndex = ReadonlyMap<string, number>;
 
@@ -42,19 +47,38 @@ export const scoreByFridgeOverlap = (
 ): number => {
   return dish.ingredients.reduce((score, ingredient) => {
     const fridgeQuantity = fridgeIndex.get(ingredient.ingredientId) ?? 0;
-    if (fridgeQuantity <= 0) {
-      return score;
-    }
-    const overlap = Math.min(fridgeQuantity, ingredient.quantity);
+    if (fridgeQuantity <= 0) return score;
+
+    // Считаем overlap (пересечение) между нужным и доступным количеством
+    const overlap = Math.min(fridgeQuantity, ingredient.qtyPerServing);
     return score + overlap;
   }, 0);
 };
+
+// ============================================================================
+// Вспомогательная функция: перемешивание массива (Fisher-Yates shuffle)
+// ============================================================================
+
+const shuffleArray = <T>(array: T[]): T[] => {
+  const result = [...array];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    //@ts-expect-error its ok
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+};
+
+// ============================================================================
+// Заполнение слотов меню блюдами
+// ============================================================================
 
 export type FillSlotsArgs = {
   totalSlots: Partial<Record<MealType, number>>;
   requiredDishes?: string[];
   pool: Partial<Record<MealType, DishWithIngredientsDto[]>>;
   fridgeIndex: FridgeIndex;
+  useFridge?: boolean;
 };
 
 export type FilledSlot = {
@@ -64,88 +88,80 @@ export type FilledSlot = {
 
 export const fillSlots = ({
   totalSlots,
-  requiredDishes,
+  requiredDishes = [],
   pool,
   fridgeIndex,
+  useFridge = true,
 }: FillSlotsArgs): FilledSlot[] => {
   const results: FilledSlot[] = [];
   const usedDishIds = new Set<string>();
 
-  const remainingSlots = new Map<MealType, number>();
-  (Object.entries(totalSlots) as [MealType, number | undefined][]).forEach(([mealType, count]) => {
-    if (typeof count === 'number' && count > 0) {
-      remainingSlots.set(mealType, count);
-    }
-  });
-
-  if (remainingSlots.size === 0) {
-    return results;
-  }
-
-  const poolByMealType = new Map<MealType, DishWithIngredientsDto[]>();
-  Object.entries(pool).forEach(([mealType, dishesForType]) => {
-    if (!dishesForType || dishesForType.length === 0) {
-      return;
-    }
-    poolByMealType.set(mealType as MealType, [...dishesForType]);
-  });
-
+  // Создаём индекс всех блюд из пула для быстрого поиска по ID
   const dishIndex = new Map<string, DishWithIngredientsDto>();
-  for (const dishesForType of poolByMealType.values()) {
-    dishesForType.forEach((dish) => {
-      dishIndex.set(dish.id, dish);
-    });
+  for (const dishes of Object.values(pool)) {
+    dishes?.forEach((dish) => dishIndex.set(dish.id, dish));
   }
 
-  if (requiredDishes && requiredDishes.length > 0) {
-    requiredDishes.forEach((dishId) => {
-      const dish = dishIndex.get(dishId);
-      if (!dish) {
-        return;
-      }
-      const remaining = remainingSlots.get(dish.mealType) ?? 0;
-      if (remaining <= 0) {
-        return;
-      }
-      results.push({ mealType: dish.mealType, dishId });
-      usedDishIds.add(dishId);
-      remainingSlots.set(dish.mealType, remaining - 1);
-    });
+  // Создаём счётчик оставшихся слотов для каждого mealType
+  const remainingSlots = new Map(
+    Object.entries(totalSlots)
+      //unused var _ is ok
+      //eslint-disable-next-line
+      .filter(([_, count]) => typeof count === 'number' && count > 0)
+      .map(([mealType, count]) => [mealType as MealType, count]),
+  );
+
+  if (remainingSlots.size === 0) return [];
+
+  // Шаг 1: Добавляем обязательные блюда (всегда выполняется)
+  for (const dishId of requiredDishes) {
+    const dish = dishIndex.get(dishId);
+    if (!dish) continue;
+
+    const remaining = remainingSlots.get(dish.mealType) ?? 0;
+    if (remaining <= 0) continue;
+
+    results.push({ mealType: dish.mealType, dishId });
+    usedDishIds.add(dishId);
+    remainingSlots.set(dish.mealType, remaining - 1);
   }
 
-  const scoredPool = new Map<MealType, { dish: DishWithIngredientsDto; score: number }[]>();
-  poolByMealType.forEach((dishesForType, mealType) => {
-    const scored = dishesForType.map((dish) => ({
-      dish,
-      score: scoreByFridgeOverlap(dish, fridgeIndex),
-    }));
-    scored.sort((a, b) => b.score - a.score || a.dish.name.localeCompare(b.dish.name));
-    scoredPool.set(mealType, scored);
-  });
+  // Шаг 2: Подготавливаем пул блюд для каждого mealType
+  const preparedPool = new Map<MealType, DishWithIngredientsDto[]>();
 
-  remainingSlots.forEach((count, mealType) => {
-    if (count <= 0) {
-      return;
+  for (const [mealType, dishes] of Object.entries(pool)) {
+    if (!dishes || dishes.length === 0) continue;
+
+    let prepared: DishWithIngredientsDto[];
+
+    if (useFridge) {
+      prepared = [...dishes]
+        .map((dish) => ({ dish, score: scoreByFridgeOverlap(dish, fridgeIndex) }))
+        .sort((a, b) => b.score - a.score || a.dish.name.localeCompare(b.dish.name))
+        .map(({ dish }) => dish);
+    } else {
+      prepared = shuffleArray(dishes);
     }
 
-    const candidates = scoredPool.get(mealType) ?? [];
-    if (candidates.length === 0) {
-      return;
-    }
+    preparedPool.set(mealType as MealType, prepared);
+  }
 
+  // Шаг 3: Заполняем оставшиеся слоты
+  for (const [mealType, slotsNeeded] of remainingSlots) {
+    if (slotsNeeded <= 0) continue;
+
+    const candidates = preparedPool.get(mealType) ?? [];
     let filled = 0;
-    for (const candidate of candidates) {
-      if (filled >= count) {
-        break;
-      }
-      if (usedDishIds.has(candidate.dish.id)) {
-        continue;
-      }
-      results.push({ mealType, dishId: candidate.dish.id });
-      usedDishIds.add(candidate.dish.id);
-      filled += 1;
+
+    for (const dish of candidates) {
+      if (filled >= slotsNeeded) break;
+      if (usedDishIds.has(dish.id)) continue;
+
+      results.push({ mealType, dishId: dish.id });
+      usedDishIds.add(dish.id);
+      filled++;
     }
-  });
+  }
 
   return results;
 };

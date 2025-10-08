@@ -1,11 +1,11 @@
-import { and, asc, eq, inArray, ilike, sql } from 'drizzle-orm';
+import { and, asc, eq, ilike, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { dishIngredients, dishes, ingredients, menuItems, menus } from '@/db/schema';
 
 import type {
   DishDto,
-  DishIngredientRefDto,
+  DishIngredientDto,
   DishWithIngredientsDto,
   IngredientDto,
 } from '@/contracts';
@@ -28,15 +28,16 @@ const toDishDto = (row: typeof dishes.$inferSelect): DishDto => ({
   mealType: row.mealType,
   isActive: row.isActive,
   tags: row.tags ?? [],
+  description: row.description,
   createdAt: row.createdAt.toISOString(),
 });
 
 const toDishIngredientDto = (
   row: typeof dishIngredients.$inferSelect,
   ingredientUnits: Map<string, IngredientDto['unit']>,
-): DishIngredientRefDto => ({
+): DishIngredientDto => ({
   ingredientId: row.ingredientId,
-  quantity: Number(row.quantity),
+  qtyPerServing: Number(row.quantity),
   unit: ingredientUnits.get(row.ingredientId) ?? ('pcs' as IngredientDto['unit']),
 });
 
@@ -45,7 +46,7 @@ const hydrateDishes = (
   ingredientRows: (typeof dishIngredients.$inferSelect)[],
   ingredientUnits: Map<string, IngredientDto['unit']>,
 ): DishWithIngredientsDto[] => {
-  const ingredientMap = new Map<string, DishIngredientRefDto[]>();
+  const ingredientMap = new Map<string, DishIngredientDto[]>();
   ingredientRows.forEach((row) => {
     const current = ingredientMap.get(row.dishId) ?? [];
     current.push(toDishIngredientDto(row, ingredientUnits));

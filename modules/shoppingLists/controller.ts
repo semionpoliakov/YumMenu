@@ -4,12 +4,20 @@ import { parseBody } from '@/lib/http';
 
 import { shoppingListsService } from './service';
 
-import type { ShoppingListItemDto, ShoppingListWithItemsDto } from '@/contracts';
+import type {
+  ShoppingListItemDto,
+  ShoppingListListItemDto,
+  ShoppingListViewDto,
+} from '@/contracts';
 
 const updateItemBodySchema = z.object({ bought: z.boolean() });
 
 export const shoppingListsController = {
-  async get(_request: Request, params: { id: string }): Promise<ShoppingListWithItemsDto> {
+  async list(): Promise<ShoppingListListItemDto[]> {
+    return shoppingListsService.list();
+  },
+
+  async get(_request: Request, params: { id: string }): Promise<ShoppingListViewDto> {
     return shoppingListsService.get(params.id);
   },
 

@@ -1,22 +1,28 @@
 import { initContract } from '@ts-rest/core';
 import { z } from 'zod';
 
-export const Unit = z.enum(['pcs', 'g', 'ml']);
-export const MealType = z.enum(['breakfast', 'lunch', 'dinner', 'snack', 'dessert']);
+import { DishTagEnum, MealTypeEnum, StatusEnum, UnitEnum } from '../domain/common/enums';
+
+export const Unit = z.enum(UnitEnum);
+export const MealType = z.enum(MealTypeEnum);
+export const DishTag = z.enum(DishTagEnum);
 
 type MealTypeValue = z.infer<typeof MealType>;
 
-export const IngredientCreate = z.object({
-  name: z.string().trim().min(1),
-  unit: Unit,
-  isActive: z.boolean().optional(),
-});
+export const IngredientCreate = z
+  .object({
+    name: z.string().trim().min(1),
+    unit: Unit,
+    isActive: z.boolean().optional(),
+  })
+  .strict();
 
-export const IngredientUpdate = z.object({
-  name: z.string().trim().min(1).optional(),
-  unit: Unit.optional(),
-  isActive: z.boolean().optional(),
-});
+export const IngredientUpdate = z
+  .object({
+    name: z.string().trim().min(1).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .strict();
 
 export const Ingredient = z.object({
   id: z.string(),
@@ -26,44 +32,65 @@ export const Ingredient = z.object({
   createdAt: z.string(),
 });
 
-export const DishIngredientRef = z.object({
-  ingredientId: z.string(),
-  quantity: z.number().positive(),
+export const DishIngredientInput = z
+  .object({
+    ingredientId: z.string(),
+    qtyPerServing: z.number().positive(),
+  })
+  .strict();
+
+export const DishIngredient = DishIngredientInput.extend({
   unit: Unit,
 });
 
-export const DishCreate = z.object({
-  name: z.string().trim().min(1),
-  mealType: MealType,
-  isActive: z.boolean().optional(),
-  tags: z.array(z.string()).optional(),
-  ingredients: z.array(DishIngredientRef).min(1),
-});
+export const DishCreate = z
+  .object({
+    name: z.string().trim().min(1),
+    mealType: MealType,
+    isActive: z.boolean().optional(),
+    tags: z.array(DishTag),
+    description: z.string().max(2_000).default(''),
+    ingredients: z.array(DishIngredientInput).min(1),
+  })
+  .strict();
 
-export const DishUpdate = DishCreate.partial();
+export const DishUpdate = z
+  .object({
+    name: z.string().trim().min(1).optional(),
+    mealType: MealType.optional(),
+    isActive: z.boolean().optional(),
+    tags: z.array(DishTag).optional(),
+    description: z.string().max(2_000).optional(),
+    ingredients: z.array(DishIngredientInput).min(1).optional(),
+  })
+  .strict();
 
 export const Dish = z.object({
   id: z.string(),
   name: z.string(),
   mealType: MealType,
   isActive: z.boolean(),
-  tags: z.array(z.string()),
+  tags: z.array(DishTag),
+  description: z.string(),
   createdAt: z.string(),
 });
 
 export const DishWithIngredients = Dish.extend({
-  ingredients: z.array(DishIngredientRef),
+  ingredients: z.array(DishIngredient),
 });
 
-export const FridgeItemCreate = z.object({
-  ingredientId: z.string(),
-  quantity: z.number().nonnegative(),
-  unit: Unit,
-});
+export const FridgeItemCreate = z
+  .object({
+    ingredientId: z.string(),
+    quantity: z.number().nonnegative(),
+  })
+  .strict();
 
-export const FridgeItemUpdate = z.object({
-  quantity: z.number().nonnegative(),
-});
+export const FridgeItemUpdate = z
+  .object({
+    quantity: z.number().nonnegative(),
+  })
+  .strict();
 
 export const FridgeItem = z.object({
   id: z.string(),
@@ -75,7 +102,7 @@ export const FridgeItem = z.object({
 
 export const Menu = z.object({
   id: z.string(),
-  status: z.enum(['draft', 'final']),
+  status: z.enum(StatusEnum),
   createdAt: z.string(),
 });
 
@@ -100,11 +127,62 @@ export const ShoppingListItem = z.object({
 export const ShoppingList = z.object({
   id: z.string(),
   menuId: z.string(),
+  status: z.enum(StatusEnum),
   createdAt: z.string(),
 });
 
 export const ShoppingListWithItems = ShoppingList.extend({
   items: z.array(ShoppingListItem),
+});
+
+export const MenuListItem = z.object({
+  id: z.string(),
+  status: z.enum(StatusEnum),
+  createdAt: z.string(),
+  itemsCount: z.number().int().nonnegative(),
+  lockedCount: z.number().int().nonnegative(),
+  cookedCount: z.number().int().nonnegative(),
+});
+
+export const MenuItemView = z.object({
+  id: z.string(),
+  mealType: MealType,
+  dishId: z.string(),
+  dishName: z.string(),
+  locked: z.boolean(),
+  cooked: z.boolean(),
+});
+
+export const MenuView = z.object({
+  id: z.string(),
+  status: z.enum(StatusEnum),
+  createdAt: z.string(),
+  items: z.array(MenuItemView),
+});
+
+export const ShoppingListListItem = z.object({
+  id: z.string(),
+  menuId: z.string(),
+  status: z.enum(StatusEnum),
+  createdAt: z.string(),
+  itemsCount: z.number().int().nonnegative(),
+  boughtCount: z.number().int().nonnegative(),
+});
+
+export const ShoppingListItemView = z.object({
+  id: z.string(),
+  ingredientId: z.string(),
+  ingredientName: z.string(),
+  quantity: z.number().nonnegative(),
+  bought: z.boolean(),
+});
+
+export const ShoppingListView = z.object({
+  id: z.string(),
+  menuId: z.string(),
+  status: z.enum(StatusEnum),
+  createdAt: z.string(),
+  items: z.array(ShoppingListItemView),
 });
 
 const slotCountSchema = z.number().int().nonnegative();
@@ -133,7 +211,7 @@ const GenerateRequestBase = z
     totalSlots: TotalSlotsSchema,
     requiredDishes: z.array(z.string()).optional(),
     requiredIngredients: z.array(z.string()).optional(),
-    includeTags: z.array(z.string()).optional(),
+    includeTags: z.array(DishTag).optional(),
   })
   .strict();
 
@@ -156,11 +234,13 @@ export const GenerateResponse = z.object({
 });
 
 export type Unit = z.infer<typeof Unit>;
+export type DishTag = z.infer<typeof DishTag>;
 export type MealType = z.infer<typeof MealType>;
 export type IngredientCreateInput = z.infer<typeof IngredientCreate>;
 export type IngredientUpdateInput = z.infer<typeof IngredientUpdate>;
 export type IngredientDto = z.infer<typeof Ingredient>;
-export type DishIngredientRefDto = z.infer<typeof DishIngredientRef>;
+export type DishIngredientInputDto = z.infer<typeof DishIngredientInput>;
+export type DishIngredientDto = z.infer<typeof DishIngredient>;
 export type DishCreateInput = z.infer<typeof DishCreate>;
 export type DishUpdateInput = z.infer<typeof DishUpdate>;
 export type DishDto = z.infer<typeof Dish>;
@@ -175,9 +255,16 @@ export type ShoppingListDto = z.infer<typeof ShoppingList>;
 export type ShoppingListWithItemsDto = z.infer<typeof ShoppingListWithItems>;
 export type GenerateRequestInput = z.infer<typeof GenerateRequestBase>;
 export type GenerateResponseDto = z.infer<typeof GenerateResponse>;
+export type MenuListItemDto = z.infer<typeof MenuListItem>;
+export type MenuItemViewDto = z.infer<typeof MenuItemView>;
+export type MenuViewDto = z.infer<typeof MenuView>;
+export type ShoppingListListItemDto = z.infer<typeof ShoppingListListItem>;
+export type ShoppingListItemViewDto = z.infer<typeof ShoppingListItemView>;
+export type ShoppingListViewDto = z.infer<typeof ShoppingListView>;
 
 export const ErrorCode = z.enum([
   'VALIDATION_ERROR',
+  'INVALID_DATA',
   'NOT_FOUND',
   'DUPLICATE_NAME',
   'HAS_DEPENDENCIES',
@@ -324,6 +411,13 @@ export const contracts = c.router({
     },
   }),
   menus: c.router({
+    list: {
+      method: 'GET',
+      path: '/api/menus',
+      responses: {
+        200: z.array(MenuListItem),
+      },
+    },
     generate: {
       method: 'POST',
       path: '/api/menus/generate',
@@ -339,11 +433,7 @@ export const contracts = c.router({
       method: 'GET',
       path: '/api/menus/:id',
       responses: {
-        200: z.object({
-          menu: Menu,
-          items: z.array(MenuItem),
-          shoppingList: ShoppingList.extend({ items: z.array(ShoppingListItem) }),
-        }),
+        200: MenuView,
         404: ErrorResponse,
       },
     },
@@ -391,11 +481,18 @@ export const contracts = c.router({
     },
   }),
   shoppingLists: c.router({
+    list: {
+      method: 'GET',
+      path: '/api/shopping-lists',
+      responses: {
+        200: z.array(ShoppingListListItem),
+      },
+    },
     get: {
       method: 'GET',
       path: '/api/shopping-lists/:id',
       responses: {
-        200: ShoppingListWithItems,
+        200: ShoppingListView,
         404: ErrorResponse,
       },
     },

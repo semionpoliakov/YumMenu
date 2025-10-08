@@ -1,6 +1,7 @@
 import { db } from '@/db/client';
 import { calculateShoppingList, fillSlots } from '@/domain/generate';
 import { buildDishPool, scoreByFridgeOverlap } from '@/domain/generate/prioritization';
+import { DEFAULT_USER_ID } from '@/domain/users/constants';
 import { insufficientDishes, notFound } from '@/lib/errors';
 import { createId } from '@/lib/ids';
 
@@ -10,18 +11,19 @@ import { fridgeRepository } from '../fridge/repo';
 import { menusRepository, type MenuItemInsertData, type ShoppingListItemInsertData } from './repo';
 
 import type {
+  DishTag,
   DishWithIngredientsDto,
+  FridgeItemDto,
   GenerateResponseDto,
   MealType,
-  MenuDto,
   MenuItemDto,
+  MenuListItemDto,
+  MenuViewDto,
   ShoppingListDto,
   ShoppingListWithItemsDto,
-  FridgeItemDto,
 } from '@/contracts';
 import type { FilledSlot } from '@/domain/generate';
 
-const DEFAULT_USER_ID = 'demo-user';
 const MENU_NOT_FOUND_MESSAGE = 'Menu not found';
 const MENU_ITEM_NOT_FOUND_MESSAGE = 'Menu item not found';
 const LOCKED_EXCEED_MESSAGE = 'Locked items exceed requested slots';
@@ -30,7 +32,7 @@ type GenerateMenuPayload = {
   totalSlots: Partial<Record<MealType, number>>;
   requiredDishes?: string[];
   requiredIngredients?: string[];
-  includeTags?: string[];
+  includeTags?: DishTag[];
 };
 
 const buildDishMap = (dishes: DishWithIngredientsDto[]) => {
@@ -44,6 +46,7 @@ const buildDishMap = (dishes: DishWithIngredientsDto[]) => {
 const toShoppingListBase = (list: ShoppingListDto | ShoppingListWithItemsDto): ShoppingListDto => ({
   id: list.id,
   menuId: list.menuId,
+  status: list.status,
   createdAt: list.createdAt,
 });
 
@@ -71,7 +74,7 @@ type SelectionContext = {
   totalSlots: Partial<Record<MealType, number>>;
   requiredDishes?: string[];
   requiredIngredients?: string[];
-  includeTags?: string[];
+  includeTags?: DishTag[];
   dishes: DishWithIngredientsDto[];
   fridgeItems: FridgeItemDto[];
   excludedDishIds?: Set<string>;
@@ -171,7 +174,7 @@ const ensureRequiredCoverage = (requiredIds: Set<string>, selected: FilledSlot[]
 const buildPool = (
   dishes: DishWithIngredientsDto[],
   totalSlots: Partial<Record<MealType, number>>,
-  includeTags: string[] | undefined,
+  includeTags: DishTag[] | undefined,
 ): Partial<Record<MealType, DishWithIngredientsDto[]>> => {
   const pool: Partial<Record<MealType, DishWithIngredientsDto[]>> = {};
   (Object.keys(totalSlots) as MealType[]).forEach((mealType) => {
@@ -261,6 +264,10 @@ const buildShoppingListItems = (
 };
 
 export const menusService = {
+  async list(): Promise<MenuListItemDto[]> {
+    return menusRepository.list(DEFAULT_USER_ID);
+  },
+
   async generate(payload: GenerateMenuPayload): Promise<GenerateResponseDto> {
     const totalSlots = normalizeTotalSlots(payload.totalSlots);
 
@@ -318,20 +325,12 @@ export const menusService = {
     return result;
   },
 
-  async get(id: string): Promise<{
-    menu: MenuDto;
-    items: MenuItemDto[];
-    shoppingList: ShoppingListWithItemsDto;
-  }> {
-    const aggregate = await menusRepository.findMenuWithDetails(DEFAULT_USER_ID, id);
-    if (!aggregate || !aggregate.shoppingList) {
+  async get(id: string): Promise<MenuViewDto> {
+    const menu = await menusRepository.findMenuView(DEFAULT_USER_ID, id);
+    if (!menu) {
       throw notFound(MENU_NOT_FOUND_MESSAGE);
     }
-    return {
-      menu: aggregate.menu,
-      items: aggregate.items,
-      shoppingList: aggregate.shoppingList,
-    };
+    return menu;
   },
 
   async regenerate(id: string, payload: GenerateMenuPayload): Promise<GenerateResponseDto> {

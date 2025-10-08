@@ -1,9 +1,14 @@
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { ingredients, menus, shoppingListItems, shoppingLists } from '@/db/schema';
 
-import type { ShoppingListItemDto, ShoppingListWithItemsDto } from '@/contracts';
+import type {
+  ShoppingListItemDto,
+  ShoppingListItemViewDto,
+  ShoppingListListItemDto,
+  ShoppingListViewDto,
+} from '@/contracts';
 
 const shoppingListItemSelection = {
   id: shoppingListItems.id,
@@ -32,12 +37,75 @@ const mapShoppingListItem = (row: ShoppingListItemRow): ShoppingListItemDto => (
   bought: row.bought,
 });
 
+const shoppingListItemViewSelection = {
+  id: shoppingListItems.id,
+  ingredientId: shoppingListItems.ingredientId,
+  ingredientName: ingredients.name,
+  quantity: shoppingListItems.quantity,
+  bought: shoppingListItems.bought,
+};
+
+type ShoppingListItemViewRow = {
+  id: string;
+  ingredientId: string;
+  ingredientName: string;
+  quantity: number;
+  bought: boolean;
+};
+
+const mapShoppingListItemView = (row: ShoppingListItemViewRow): ShoppingListItemViewDto => ({
+  id: row.id,
+  ingredientId: row.ingredientId,
+  ingredientName: row.ingredientName,
+  quantity: Number(row.quantity),
+  bought: row.bought,
+});
+
+type ShoppingListListRow = {
+  id: string;
+  menuId: string;
+  status: ShoppingListViewDto['status'];
+  createdAt: Date;
+  itemsCount: number | string | null;
+  boughtCount: number | string | null;
+};
+
+const mapShoppingListListItem = (row: ShoppingListListRow): ShoppingListListItemDto => ({
+  id: row.id,
+  menuId: row.menuId,
+  status: row.status,
+  createdAt: row.createdAt.toISOString(),
+  itemsCount: Number(row.itemsCount ?? 0),
+  boughtCount: Number(row.boughtCount ?? 0),
+});
+
 export const shoppingListsRepository = {
-  async findById(userId: string, id: string): Promise<ShoppingListWithItemsDto | null> {
+  async list(userId: string): Promise<ShoppingListListItemDto[]> {
+    const rows = await db
+      .select({
+        id: shoppingLists.id,
+        menuId: shoppingLists.menuId,
+        status: shoppingLists.status,
+        createdAt: shoppingLists.createdAt,
+        itemsCount: sql<number>`coalesce(count(${shoppingListItems.id}), 0)::int`,
+        boughtCount: sql<number>`coalesce(sum(case when ${shoppingListItems.bought} then 1 else 0 end), 0)::int`,
+      })
+      .from(shoppingLists)
+      .innerJoin(menus, eq(menus.id, shoppingLists.menuId))
+      .leftJoin(shoppingListItems, eq(shoppingListItems.shoppingListId, shoppingLists.id))
+      .where(eq(menus.userId, userId))
+      .groupBy(shoppingLists.id)
+      .orderBy(desc(shoppingLists.createdAt), desc(shoppingLists.id));
+
+    return rows.map(mapShoppingListListItem);
+  },
+
+  async findById(userId: string, id: string): Promise<ShoppingListViewDto | null> {
     const shoppingListRow = await db
       .select({
         id: shoppingLists.id,
         menuId: shoppingLists.menuId,
+        status: shoppingLists.status,
         createdAt: shoppingLists.createdAt,
       })
       .from(shoppingLists)
@@ -51,7 +119,7 @@ export const shoppingListsRepository = {
     }
 
     const items = await db
-      .select(shoppingListItemSelection)
+      .select(shoppingListItemViewSelection)
       .from(shoppingListItems)
       .innerJoin(ingredients, eq(shoppingListItems.ingredientId, ingredients.id))
       .where(eq(shoppingListItems.shoppingListId, id));
@@ -59,8 +127,9 @@ export const shoppingListsRepository = {
     return {
       id: row.id,
       menuId: row.menuId,
+      status: row.status,
       createdAt: row.createdAt.toISOString(),
-      items: items.map(mapShoppingListItem),
+      items: items.map(mapShoppingListItemView),
     };
   },
 

@@ -1,6 +1,12 @@
 import { z } from 'zod';
 
-import { GenerateRequest, type GenerateResponseDto, type MenuItemDto } from '@/contracts';
+import {
+  GenerateRequest,
+  type GenerateResponseDto,
+  type MenuItemDto,
+  type MenuListItemDto,
+  type MenuViewDto,
+} from '@/contracts';
 import { parseBody } from '@/lib/http';
 
 import { menusService } from './service';
@@ -14,12 +20,16 @@ const lockBodySchema = z.object({
 });
 
 export const menusController = {
+  async list(): Promise<MenuListItemDto[]> {
+    return menusService.list();
+  },
+
   async generate(request: Request): Promise<GenerateResponseDto> {
     const body = await parseBody(request, generateBodySchema);
     return menusService.generate(body);
   },
 
-  async get(_request: Request, params: { id: string }) {
+  async get(_request: Request, params: { id: string }): Promise<MenuViewDto> {
     return menusService.get(params.id);
   },
 

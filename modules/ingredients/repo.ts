@@ -1,7 +1,15 @@
 import { and, asc, eq, ilike, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@/db/client';
-import { dishes, dishIngredients, ingredients } from '@/db/schema';
+import {
+  dishes,
+  dishIngredients,
+  fridgeItems,
+  ingredients,
+  menus,
+  shoppingListItems,
+  shoppingLists,
+} from '@/db/schema';
 
 import type { IngredientDto } from '@/contracts';
 
@@ -105,12 +113,30 @@ export const ingredientsRepository = {
     await db.delete(ingredients).where(and(eq(ingredients.id, id), eq(ingredients.userId, userId)));
   },
 
-  async countDishUsage(userId: string, ingredientId: string): Promise<number> {
+  async countDishIngredients(userId: string, ingredientId: string): Promise<number> {
     const [result] = await db
       .select({ count: sql<string>`count(*)` })
       .from(dishIngredients)
       .innerJoin(dishes, eq(dishes.id, dishIngredients.dishId))
       .where(and(eq(dishIngredients.ingredientId, ingredientId), eq(dishes.userId, userId)));
+    return Number(result?.count ?? 0);
+  },
+
+  async countFridgeItems(userId: string, ingredientId: string): Promise<number> {
+    const [result] = await db
+      .select({ count: sql<string>`count(*)` })
+      .from(fridgeItems)
+      .where(and(eq(fridgeItems.ingredientId, ingredientId), eq(fridgeItems.userId, userId)));
+    return Number(result?.count ?? 0);
+  },
+
+  async countShoppingListItems(userId: string, ingredientId: string): Promise<number> {
+    const [result] = await db
+      .select({ count: sql<string>`count(*)` })
+      .from(shoppingListItems)
+      .innerJoin(shoppingLists, eq(shoppingLists.id, shoppingListItems.shoppingListId))
+      .innerJoin(menus, eq(menus.id, shoppingLists.menuId))
+      .where(and(eq(shoppingListItems.ingredientId, ingredientId), eq(menus.userId, userId)));
     return Number(result?.count ?? 0);
   },
 };

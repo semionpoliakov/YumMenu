@@ -1,4 +1,5 @@
 import { db } from '@/db/client';
+import { DEFAULT_USER_ID } from '@/domain/users/constants';
 import { duplicateName, hasDependencies, notFound } from '@/lib/errors';
 import { createId } from '@/lib/ids';
 
@@ -14,21 +15,20 @@ import {
 import type {
   DishCreateInput,
   DishDto,
-  DishIngredientRefDto,
+  DishIngredientInputDto,
+  DishTag,
   DishUpdateInput,
   DishWithIngredientsDto,
 } from '@/contracts';
 
-const DEFAULT_USER_ID = 'demo-user';
 const DISH_UNIQUE_MESSAGE = 'Dish name must be unique';
 const DISH_NOT_FOUND_MESSAGE = 'Dish not found';
 const INGREDIENT_NOT_FOUND_MESSAGE = 'Referenced ingredient not found';
 
 const normalizeName = (name: string) => name.trim();
-const normalizeTags = (tags?: string[]) =>
-  tags ? tags.map((tag) => tag.trim()).filter((tag) => tag.length > 0) : [];
+const normalizeTags = (tags?: DishTag[]) => (tags ? Array.from(new Set(tags)) : []);
 
-const ensureIngredientsExist = async (ingredientRefs: DishIngredientRefDto[]) => {
+const ensureIngredientsExist = async (ingredientRefs: DishIngredientInputDto[]) => {
   const ids = Array.from(new Set(ingredientRefs.map((item) => item.ingredientId)));
   const found = await ingredientsRepository.findAllByIds(DEFAULT_USER_ID, ids);
   if (found.length !== ids.length) {
@@ -38,12 +38,12 @@ const ensureIngredientsExist = async (ingredientRefs: DishIngredientRefDto[]) =>
 
 const toIngredientInserts = (
   dishId: string,
-  items: DishIngredientRefDto[],
+  items: DishIngredientInputDto[],
 ): DishIngredientInsert[] =>
   items.map((item) => ({
     dishId,
     ingredientId: item.ingredientId,
-    quantity: item.quantity,
+    quantity: item.qtyPerServing,
   }));
 
 export const dishesService = {
@@ -67,6 +67,7 @@ export const dishesService = {
       mealType: payload.mealType,
       isActive: payload.isActive ?? true,
       tags: normalizeTags(payload.tags),
+      description: payload.description ?? '',
     };
 
     const dish = await db.transaction(async (tx) => {
@@ -111,6 +112,10 @@ export const dishesService = {
 
     if (payload.tags !== undefined) {
       updates.tags = normalizeTags(payload.tags);
+    }
+
+    if (payload.description !== undefined) {
+      updates.description = payload.description.trim();
     }
 
     const ingredients = payload.ingredients;

@@ -1,3 +1,4 @@
+import { DEFAULT_USER_ID } from '@/domain/users/constants';
 import { notFound } from '@/lib/errors';
 import { createId } from '@/lib/ids';
 
@@ -7,7 +8,6 @@ import { fridgeRepository, type FridgeInsertData, type FridgeUpdateData } from '
 
 import type { FridgeItemCreateInput, FridgeItemDto, FridgeItemUpdateInput } from '@/contracts';
 
-const DEFAULT_USER_ID = 'demo-user';
 const FRIDGE_ITEM_NOT_FOUND_MESSAGE = 'Fridge item not found';
 const INGREDIENT_NOT_FOUND_MESSAGE = 'Ingredient not found';
 

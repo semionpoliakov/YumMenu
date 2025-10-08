@@ -8,18 +8,21 @@ export class AppError extends Error {
   constructor(
     public readonly code: AppErrorCode,
     message?: string,
+    public readonly status?: number,
   ) {
     super(message ?? code);
     this.name = 'AppError';
   }
 }
 
-export const createError = (code: AppErrorCode, message?: string) => new AppError(code, message);
+export const createError = (code: AppErrorCode, message?: string, status?: number) =>
+  new AppError(code, message, status);
 
 export const isAppError = (error: unknown): error is AppError => error instanceof AppError;
 
 const statusByCode: Record<AppErrorCode, number> = {
   VALIDATION_ERROR: 400,
+  INVALID_DATA: 400,
   NOT_FOUND: 404,
   DUPLICATE_NAME: 409,
   HAS_DEPENDENCIES: 409,
@@ -27,19 +30,22 @@ const statusByCode: Record<AppErrorCode, number> = {
   UNKNOWN: 500,
 };
 
+export const invalidData = (message: string, status?: number) =>
+  new AppError('INVALID_DATA', message, status);
+
 export const toHttpError = (error: unknown) => {
   if (error instanceof ZodError) {
     return {
       status: 400,
       body: {
-        code: 'VALIDATION_ERROR' as const,
+        code: 'INVALID_DATA' as const,
         message: error.message,
       },
     };
   }
 
   if (isAppError(error)) {
-    const status = statusByCode[error.code] ?? 500;
+    const status = error.status ?? statusByCode[error.code] ?? 500;
     return {
       status,
       body: {

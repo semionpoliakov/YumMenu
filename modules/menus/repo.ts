@@ -1,14 +1,24 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '@/db/client';
-import { ingredients, menuItems, menus, shoppingListItems, shoppingLists } from '@/db/schema';
+import {
+  dishes,
+  ingredients,
+  menuItems,
+  menus,
+  shoppingListItems,
+  shoppingLists,
+} from '@/db/schema';
 
 import type {
   MenuDto,
   MenuItemDto,
+  MenuItemViewDto,
+  MenuListItemDto,
   ShoppingListDto,
   ShoppingListItemDto,
   ShoppingListWithItemsDto,
+  MenuViewDto,
 } from '@/contracts';
 
 const toMenuDto = (row: typeof menus.$inferSelect): MenuDto => ({
@@ -29,6 +39,7 @@ const toMenuItemDto = (row: typeof menuItems.$inferSelect): MenuItemDto => ({
 const toShoppingListDto = (row: typeof shoppingLists.$inferSelect): ShoppingListDto => ({
   id: row.id,
   menuId: row.menuId,
+  status: row.status,
   createdAt: row.createdAt.toISOString(),
 });
 
@@ -59,6 +70,42 @@ const mapShoppingListItem = (row: ShoppingListItemRow): ShoppingListItemDto => (
   bought: row.bought,
 });
 
+type MenuListRow = {
+  id: string;
+  status: MenuDto['status'];
+  createdAt: Date;
+  itemsCount: number | string | null;
+  lockedCount: number | string | null;
+  cookedCount: number | string | null;
+};
+
+const mapMenuListItem = (row: MenuListRow): MenuListItemDto => ({
+  id: row.id,
+  status: row.status,
+  createdAt: row.createdAt.toISOString(),
+  itemsCount: Number(row.itemsCount ?? 0),
+  lockedCount: Number(row.lockedCount ?? 0),
+  cookedCount: Number(row.cookedCount ?? 0),
+});
+
+type MenuItemViewRow = {
+  id: string;
+  mealType: MenuItemDto['mealType'];
+  dishId: string;
+  dishName: string;
+  locked: boolean;
+  cooked: boolean;
+};
+
+const mapMenuItemView = (row: MenuItemViewRow): MenuItemViewDto => ({
+  id: row.id,
+  mealType: row.mealType,
+  dishId: row.dishId,
+  dishName: row.dishName,
+  locked: row.locked,
+  cooked: row.cooked,
+});
+
 type DbClient = typeof db;
 type TransactionClient = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type DbOrTx = DbClient | TransactionClient;
@@ -82,6 +129,55 @@ export type ShoppingListItemInsertData = {
 const getClient = (client?: DbOrTx): DbOrTx => client ?? db;
 
 export const menusRepository = {
+  async list(userId: string): Promise<MenuListItemDto[]> {
+    const rows = await db
+      .select({
+        id: menus.id,
+        status: menus.status,
+        createdAt: menus.createdAt,
+        itemsCount: sql<number>`coalesce(count(${menuItems.id}), 0)::int`,
+        lockedCount: sql<number>`coalesce(sum(case when ${menuItems.locked} then 1 else 0 end), 0)::int`,
+        cookedCount: sql<number>`coalesce(sum(case when ${menuItems.cooked} then 1 else 0 end), 0)::int`,
+      })
+      .from(menus)
+      .leftJoin(menuItems, eq(menuItems.menuId, menus.id))
+      .where(eq(menus.userId, userId))
+      .groupBy(menus.id)
+      .orderBy(desc(menus.createdAt), desc(menus.id));
+
+    return rows.map(mapMenuListItem);
+  },
+
+  async findMenuView(userId: string, id: string): Promise<MenuViewDto | null> {
+    const menuRow = await db.query.menus.findFirst({
+      where: (fields, { and }) => and(eq(fields.userId, userId), eq(fields.id, id)),
+    });
+    if (!menuRow) {
+      return null;
+    }
+
+    const itemRows = await db
+      .select({
+        id: menuItems.id,
+        mealType: menuItems.mealType,
+        dishId: menuItems.dishId,
+        dishName: dishes.name,
+        locked: menuItems.locked,
+        cooked: menuItems.cooked,
+      })
+      .from(menuItems)
+      .innerJoin(dishes, eq(menuItems.dishId, dishes.id))
+      .where(eq(menuItems.menuId, id))
+      .orderBy(asc(menuItems.id));
+
+    return {
+      id: menuRow.id,
+      status: menuRow.status,
+      createdAt: menuRow.createdAt.toISOString(),
+      items: itemRows.map(mapMenuItemView),
+    };
+  },
+
   async findMenu(userId: string, id: string): Promise<MenuDto | null> {
     const row = await db.query.menus.findFirst({
       where: (fields, { and }) => and(eq(fields.userId, userId), eq(fields.id, id)),

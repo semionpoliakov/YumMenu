@@ -1,4 +1,5 @@
-import { duplicateName, hasDependencies, notFound } from '@/lib/errors';
+import { DEFAULT_USER_ID } from '@/domain/users/constants';
+import { duplicateName, hasDependencies, invalidData, notFound } from '@/lib/errors';
 import { createId } from '@/lib/ids';
 
 import {
@@ -10,11 +11,29 @@ import {
 
 import type { IngredientCreateInput, IngredientDto, IngredientUpdateInput } from '@/contracts';
 
-const DEFAULT_USER_ID = 'demo-user';
 const INGREDIENT_UNIQUE_MESSAGE = 'Ingredient name must be unique';
 const INGREDIENT_NOT_FOUND_MESSAGE = 'Ingredient not found';
+const INGREDIENT_IN_USE_MESSAGE =
+  'Ingredient is in use and cannot be modified/deleted. Consider isActive=false.';
+const INGREDIENT_IN_USE_DELETE_MESSAGE =
+  'Cannot delete ingredient that is in use. Set isActive=false instead.';
+const INGREDIENT_UNIT_IMMUTABLE = 'Unit is immutable';
 
 const normalizeName = (name: string) => name.trim();
+
+const ensureIngredientUnused = async (
+  ingredientId: string,
+  message: string = INGREDIENT_IN_USE_MESSAGE,
+) => {
+  const [inDishes, inFridge, inShopping] = await Promise.all([
+    ingredientsRepository.countDishIngredients(DEFAULT_USER_ID, ingredientId),
+    ingredientsRepository.countFridgeItems(DEFAULT_USER_ID, ingredientId),
+    ingredientsRepository.countShoppingListItems(DEFAULT_USER_ID, ingredientId),
+  ]);
+  if (inDishes + inFridge + inShopping > 0) {
+    throw hasDependencies(message);
+  }
+};
 
 export const ingredientsService = {
   async list(activeFilter: IngredientActiveFilter = 'all'): Promise<IngredientDto[]> {
@@ -53,16 +72,20 @@ export const ingredientsService = {
         if (existing && existing.id !== id) {
           throw duplicateName(INGREDIENT_UNIQUE_MESSAGE);
         }
+        updates.name = name;
       }
-      updates.name = name;
     }
 
-    if (payload.unit !== undefined) {
-      updates.unit = payload.unit;
+    if ((payload as { unit?: unknown }).unit !== undefined) {
+      throw invalidData(INGREDIENT_UNIT_IMMUTABLE, 400);
     }
 
     if (payload.isActive !== undefined) {
       updates.isActive = payload.isActive;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return current;
     }
 
     const updated = await ingredientsRepository.update(DEFAULT_USER_ID, id, updates);
@@ -78,10 +101,7 @@ export const ingredientsService = {
       throw notFound(INGREDIENT_NOT_FOUND_MESSAGE);
     }
 
-    const usageCount = await ingredientsRepository.countDishUsage(DEFAULT_USER_ID, id);
-    if (usageCount > 0) {
-      throw hasDependencies('Ingredient is used by dishes');
-    }
+    await ensureIngredientUnused(id, INGREDIENT_IN_USE_DELETE_MESSAGE);
 
     await ingredientsRepository.delete(DEFAULT_USER_ID, id);
   },

@@ -1,6 +1,6 @@
 import { createError } from './errors';
 
-import type { ZodSchema } from 'zod';
+import type { ZodTypeAny, z } from 'zod';
 
 export const parseJson = async (request: Request): Promise<unknown> => {
   try {
@@ -13,13 +13,42 @@ export const parseJson = async (request: Request): Promise<unknown> => {
   }
 };
 
-export const parseBody = async <T>(request: Request, schema: ZodSchema<T>): Promise<T> => {
+export const parseBody = async <Schema extends ZodTypeAny>(
+  request: Request,
+  schema: Schema,
+): Promise<z.output<Schema>> => {
   const json = await parseJson(request);
-  return schema.parse(json);
+
+  const result = schema.safeParse(json);
+
+  if (!result.success) {
+    const errorMessage = result.error.errors
+      .map((err) => `${err.path.join('.')}: ${err.message}`)
+      .join(', ');
+    throw createError('VALIDATION_ERROR', `Invalid request body: ${errorMessage}`);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return result.data as z.output<Schema>;
 };
 
-export const parseQuery = <T>(request: Request, schema: ZodSchema<T>): T => {
+export const parseQuery = <Schema extends ZodTypeAny>(
+  request: Request,
+  schema: Schema,
+): z.output<Schema> => {
   const url = new URL(request.url);
+
   const query = Object.fromEntries(url.searchParams.entries());
-  return schema.parse(query);
+
+  const result = schema.safeParse(query);
+
+  if (!result.success) {
+    const errorMessage = result.error.errors
+      .map((err) => `${err.path.join('.')}: ${err.message}`)
+      .join(', ');
+    throw createError('VALIDATION_ERROR', `Invalid query parameters: ${errorMessage}`);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return result.data as z.output<Schema>;
 };
