@@ -29,10 +29,14 @@ const MENU_ITEM_NOT_FOUND_MESSAGE = 'Menu item not found';
 const LOCKED_EXCEED_MESSAGE = 'Locked items exceed requested slots';
 
 type GenerateMenuPayload = {
-  totalSlots: Partial<Record<MealType, number>>;
+  name: string;
+  perDay: Partial<Record<MealType, number>>;
   requiredDishes?: string[];
   requiredIngredients?: string[];
-  includeTags?: DishTag[];
+  filters?: {
+    includeCategories?: string[];
+    includeTags?: DishTag[];
+  };
 };
 
 const buildDishMap = (dishes: DishWithIngredientsDto[]) => {
@@ -47,6 +51,7 @@ const toShoppingListBase = (list: ShoppingListDto | ShoppingListWithItemsDto): S
   id: list.id,
   menuId: list.menuId,
   status: list.status,
+  name: list.name,
   createdAt: list.createdAt,
 });
 
@@ -68,6 +73,14 @@ const normalizeTotalSlots = (
     }
   });
   return normalized;
+};
+
+const deriveShoppingListName = (menuName: string): string => {
+  const trimmed = menuName.trim();
+  if (!trimmed) {
+    return 'shopping list';
+  }
+  return trimmed.toLowerCase().includes('shopping list') ? trimmed : `${trimmed} shopping list`;
 };
 
 type SelectionContext = {
@@ -269,7 +282,7 @@ export const menusService = {
   },
 
   async generate(payload: GenerateMenuPayload): Promise<GenerateResponseDto> {
-    const totalSlots = normalizeTotalSlots(payload.totalSlots);
+    const totalSlots = normalizeTotalSlots(payload.perDay);
 
     const dishes = await dishesRepository.list(DEFAULT_USER_ID);
     const fridgeItems = await fridgeRepository.list(DEFAULT_USER_ID);
@@ -278,7 +291,7 @@ export const menusService = {
       totalSlots,
       requiredDishes: payload.requiredDishes,
       requiredIngredients: payload.requiredIngredients,
-      includeTags: payload.includeTags,
+      includeTags: payload.filters?.includeTags,
       dishes,
       fridgeItems,
     });
@@ -292,11 +305,13 @@ export const menusService = {
       locked: false,
       cooked: false,
     }));
+    const shoppingListName = deriveShoppingListName(payload.name);
 
     const result = await db.transaction(async (tx) => {
       const menu = await menusRepository.insertMenu(tx, DEFAULT_USER_ID, {
         id: menuId,
         status: 'draft',
+        name: payload.name,
       });
       const storedItems = await menusRepository.insertMenuItems(tx, menuItemInserts);
       const shoppingListId = createId();
@@ -309,6 +324,7 @@ export const menusService = {
       const shoppingList = await menusRepository.insertShoppingList(tx, {
         id: shoppingListId,
         menuId,
+        name: shoppingListName,
       });
       await menusRepository.replaceShoppingListItems(tx, shoppingListId, shoppingListItems);
       const shoppingListWithItems: ShoppingListWithItemsDto = {
@@ -345,7 +361,7 @@ export const menusService = {
       shoppingList: existingShoppingList,
     } = aggregate;
 
-    const totalSlots = normalizeTotalSlots(payload.totalSlots);
+    const totalSlots = normalizeTotalSlots(payload.perDay);
     const dishes = await dishesRepository.list(DEFAULT_USER_ID);
     const fridgeItems = await fridgeRepository.list(DEFAULT_USER_ID);
     const dishMap = buildDishMap(dishes);
@@ -379,7 +395,7 @@ export const menusService = {
         (dishId: string) => !lockedDishIds.has(dishId),
       ),
       requiredIngredients: pendingRequiredIngredients,
-      includeTags: payload.includeTags,
+      includeTags: payload.filters?.includeTags,
       dishes,
       fridgeItems,
       excludedDishIds: lockedDishIds,
@@ -393,6 +409,7 @@ export const menusService = {
       locked: false,
       cooked: false,
     }));
+    const shoppingListName = deriveShoppingListName(payload.name);
 
     const result = await db.transaction(async (tx) => {
       if (unlockedItems.length > 0) {
@@ -413,10 +430,12 @@ export const menusService = {
       );
       await menusRepository.replaceShoppingListItems(tx, shoppingListId, shoppingListItems);
       const shoppingListRecord =
-        (await menusRepository.updateShoppingList(tx, shoppingListId, {})) ?? existingShoppingList;
+        (await menusRepository.updateShoppingList(tx, shoppingListId, { name: shoppingListName })) ??
+        existingShoppingList;
       const shoppingListBase = toShoppingListBase(shoppingListRecord);
       const updatedMenuRecord =
-        (await menusRepository.updateMenu(tx, DEFAULT_USER_ID, id, {})) ?? existingMenu;
+        (await menusRepository.updateMenu(tx, DEFAULT_USER_ID, id, { name: payload.name })) ??
+        existingMenu;
       const shoppingListWithItems: ShoppingListWithItemsDto = {
         ...shoppingListBase,
         items: shoppingListItems.map((item) => ({ ...item })),

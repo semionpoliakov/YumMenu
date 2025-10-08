@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import {
@@ -24,6 +24,7 @@ import type {
 const toMenuDto = (row: typeof menus.$inferSelect): MenuDto => ({
   id: row.id,
   status: row.status,
+  name: row.name,
   createdAt: row.createdAt.toISOString(),
 });
 
@@ -40,6 +41,7 @@ const toShoppingListDto = (row: typeof shoppingLists.$inferSelect): ShoppingList
   id: row.id,
   menuId: row.menuId,
   status: row.status,
+  name: row.name,
   createdAt: row.createdAt.toISOString(),
 });
 
@@ -73,19 +75,15 @@ const mapShoppingListItem = (row: ShoppingListItemRow): ShoppingListItemDto => (
 type MenuListRow = {
   id: string;
   status: MenuDto['status'];
+  name: string;
   createdAt: Date;
-  itemsCount: number | string | null;
-  lockedCount: number | string | null;
-  cookedCount: number | string | null;
 };
 
 const mapMenuListItem = (row: MenuListRow): MenuListItemDto => ({
   id: row.id,
   status: row.status,
+  name: row.name,
   createdAt: row.createdAt.toISOString(),
-  itemsCount: Number(row.itemsCount ?? 0),
-  lockedCount: Number(row.lockedCount ?? 0),
-  cookedCount: Number(row.cookedCount ?? 0),
 });
 
 type MenuItemViewRow = {
@@ -134,15 +132,11 @@ export const menusRepository = {
       .select({
         id: menus.id,
         status: menus.status,
+        name: menus.name,
         createdAt: menus.createdAt,
-        itemsCount: sql<number>`coalesce(count(${menuItems.id}), 0)::int`,
-        lockedCount: sql<number>`coalesce(sum(case when ${menuItems.locked} then 1 else 0 end), 0)::int`,
-        cookedCount: sql<number>`coalesce(sum(case when ${menuItems.cooked} then 1 else 0 end), 0)::int`,
       })
       .from(menus)
-      .leftJoin(menuItems, eq(menuItems.menuId, menus.id))
       .where(eq(menus.userId, userId))
-      .groupBy(menus.id)
       .orderBy(desc(menus.createdAt), desc(menus.id));
 
     return rows.map(mapMenuListItem);
@@ -173,6 +167,7 @@ export const menusRepository = {
     return {
       id: menuRow.id,
       status: menuRow.status,
+      name: menuRow.name,
       createdAt: menuRow.createdAt.toISOString(),
       items: itemRows.map(mapMenuItemView),
     };

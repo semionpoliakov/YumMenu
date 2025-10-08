@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 
 import { db } from '@/db/client';
 import { ingredients, menus, shoppingListItems, shoppingLists } from '@/db/schema';
@@ -63,20 +63,16 @@ const mapShoppingListItemView = (row: ShoppingListItemViewRow): ShoppingListItem
 
 type ShoppingListListRow = {
   id: string;
-  menuId: string;
   status: ShoppingListViewDto['status'];
+  name: string;
   createdAt: Date;
-  itemsCount: number | string | null;
-  boughtCount: number | string | null;
 };
 
 const mapShoppingListListItem = (row: ShoppingListListRow): ShoppingListListItemDto => ({
   id: row.id,
-  menuId: row.menuId,
   status: row.status,
+  name: row.name,
   createdAt: row.createdAt.toISOString(),
-  itemsCount: Number(row.itemsCount ?? 0),
-  boughtCount: Number(row.boughtCount ?? 0),
 });
 
 export const shoppingListsRepository = {
@@ -84,17 +80,13 @@ export const shoppingListsRepository = {
     const rows = await db
       .select({
         id: shoppingLists.id,
-        menuId: shoppingLists.menuId,
         status: shoppingLists.status,
+        name: shoppingLists.name,
         createdAt: shoppingLists.createdAt,
-        itemsCount: sql<number>`coalesce(count(${shoppingListItems.id}), 0)::int`,
-        boughtCount: sql<number>`coalesce(sum(case when ${shoppingListItems.bought} then 1 else 0 end), 0)::int`,
       })
       .from(shoppingLists)
       .innerJoin(menus, eq(menus.id, shoppingLists.menuId))
-      .leftJoin(shoppingListItems, eq(shoppingListItems.shoppingListId, shoppingLists.id))
       .where(eq(menus.userId, userId))
-      .groupBy(shoppingLists.id)
       .orderBy(desc(shoppingLists.createdAt), desc(shoppingLists.id));
 
     return rows.map(mapShoppingListListItem);
@@ -106,6 +98,7 @@ export const shoppingListsRepository = {
         id: shoppingLists.id,
         menuId: shoppingLists.menuId,
         status: shoppingLists.status,
+        name: shoppingLists.name,
         createdAt: shoppingLists.createdAt,
       })
       .from(shoppingLists)
@@ -128,6 +121,7 @@ export const shoppingListsRepository = {
       id: row.id,
       menuId: row.menuId,
       status: row.status,
+      name: row.name,
       createdAt: row.createdAt.toISOString(),
       items: items.map(mapShoppingListItemView),
     };

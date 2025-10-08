@@ -103,6 +103,7 @@ export const FridgeItem = z.object({
 export const Menu = z.object({
   id: z.string(),
   status: z.enum(StatusEnum),
+  name: z.string(),
   createdAt: z.string(),
 });
 
@@ -128,6 +129,7 @@ export const ShoppingList = z.object({
   id: z.string(),
   menuId: z.string(),
   status: z.enum(StatusEnum),
+  name: z.string(),
   createdAt: z.string(),
 });
 
@@ -138,10 +140,8 @@ export const ShoppingListWithItems = ShoppingList.extend({
 export const MenuListItem = z.object({
   id: z.string(),
   status: z.enum(StatusEnum),
+  name: z.string(),
   createdAt: z.string(),
-  itemsCount: z.number().int().nonnegative(),
-  lockedCount: z.number().int().nonnegative(),
-  cookedCount: z.number().int().nonnegative(),
 });
 
 export const MenuItemView = z.object({
@@ -156,17 +156,16 @@ export const MenuItemView = z.object({
 export const MenuView = z.object({
   id: z.string(),
   status: z.enum(StatusEnum),
+  name: z.string(),
   createdAt: z.string(),
   items: z.array(MenuItemView),
 });
 
 export const ShoppingListListItem = z.object({
   id: z.string(),
-  menuId: z.string(),
   status: z.enum(StatusEnum),
+  name: z.string(),
   createdAt: z.string(),
-  itemsCount: z.number().int().nonnegative(),
-  boughtCount: z.number().int().nonnegative(),
 });
 
 export const ShoppingListItemView = z.object({
@@ -181,13 +180,14 @@ export const ShoppingListView = z.object({
   id: z.string(),
   menuId: z.string(),
   status: z.enum(StatusEnum),
+  name: z.string(),
   createdAt: z.string(),
   items: z.array(ShoppingListItemView),
 });
 
 const slotCountSchema = z.number().int().nonnegative();
 
-const TotalSlotsSchema = z
+const PerDaySchema = z
   .object({
     breakfast: slotCountSchema.optional(),
     lunch: slotCountSchema.optional(),
@@ -208,19 +208,27 @@ const TotalSlotsSchema = z
 
 const GenerateRequestBase = z
   .object({
-    totalSlots: TotalSlotsSchema,
+    name: z.string().trim().min(1),
+    perDay: PerDaySchema,
+    filters: z
+      .object({
+        includeCategories: z.array(z.string()).optional(),
+        includeTags: z.array(DishTag).optional(),
+      })
+      .strict()
+      .partial()
+      .optional(),
     requiredDishes: z.array(z.string()).optional(),
     requiredIngredients: z.array(z.string()).optional(),
-    includeTags: z.array(DishTag).optional(),
   })
   .strict();
 
 export const GenerateRequest = GenerateRequestBase.superRefine((input, ctx) => {
-  if (Object.keys(input.totalSlots).length === 0) {
+  if (Object.keys(input.perDay).length === 0) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'totalSlots must not be empty',
-      path: ['totalSlots'],
+      message: 'perDay must not be empty',
+      path: ['perDay'],
     });
   }
 });

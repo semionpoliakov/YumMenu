@@ -15,6 +15,13 @@
       "when": 1759846300802,
       "tag": "0001_premium_forge",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1760400000000,
+      "tag": "0002_add_menu_and_shopping_list_name",
+      "breakpoints": true
     }
   ]
 }

@@ -99,6 +99,7 @@ export const fridgeItems = pgTable(
 export const menus = pgTable('menus', {
   id: text('id').primaryKey(),
   userId: text('user_id').notNull(),
+  name: text('name').notNull().default(''),
   status: statusEnum('status').notNull(),
   createdAt: ts('created_at'),
 });
@@ -130,6 +131,7 @@ export const shoppingLists = pgTable(
     menuId: text('menu_id')
       .notNull()
       .references(() => menus.id),
+    name: text('name').notNull().default(''),
     status: statusEnum('status').notNull().default('draft'),
     createdAt: ts('created_at'),
   },
