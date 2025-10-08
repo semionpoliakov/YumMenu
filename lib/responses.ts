@@ -1,5 +1,21 @@
 import { toHttpError } from './errors';
 
+const logError = (error: unknown) => {
+  if (error instanceof Error) {
+    console.error(error.stack ?? error);
+  } else {
+    console.error(error);
+  }
+};
+
+export const handleError = (error: unknown) => {
+  const httpError = toHttpError(error);
+  if (httpError.status >= 500) {
+    logError(error);
+  }
+  return Response.json(httpError.body, { status: httpError.status });
+};
+
 export const handleJson = async <T>(callback: () => Promise<T>, status = 200) => {
   try {
     const data = await callback();
@@ -8,7 +24,6 @@ export const handleJson = async <T>(callback: () => Promise<T>, status = 200) =>
     }
     return Response.json(data, { status });
   } catch (error) {
-    const httpError = toHttpError(error);
-    return Response.json(httpError.body, { status: httpError.status });
+    return handleError(error);
   }
 };

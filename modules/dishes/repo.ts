@@ -3,12 +3,7 @@ import { and, asc, eq, ilike, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { dishIngredients, dishes, ingredients, menuItems, menus } from '@/db/schema';
 
-import type {
-  DishDto,
-  DishIngredientDto,
-  DishWithIngredientsDto,
-  IngredientDto,
-} from '@/contracts';
+import type { DishDto, IngredientDto } from '@/contracts';
 
 type DbClient = typeof db;
 type TransactionClient = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -32,24 +27,28 @@ const toDishDto = (row: typeof dishes.$inferSelect): DishDto => ({
   createdAt: row.createdAt.toISOString(),
 });
 
-const toDishIngredientDto = (
+const toDishIngredientRecord = (
   row: typeof dishIngredients.$inferSelect,
-  ingredientUnits: Map<string, IngredientDto['unit']>,
-): DishIngredientDto => ({
-  ingredientId: row.ingredientId,
-  qtyPerServing: Number(row.quantity),
-  unit: ingredientUnits.get(row.ingredientId) ?? ('pcs' as IngredientDto['unit']),
-});
+  ingredientDetails: Map<string, IngredientDetail>,
+): DishIngredientRecord => {
+  const details = ingredientDetails.get(row.ingredientId);
+  return {
+    ingredientId: row.ingredientId,
+    qtyPerServing: Number(row.quantity),
+    name: details?.name ?? 'Unknown ingredient',
+    unit: details?.unit ?? ('pcs' as IngredientDto['unit']),
+  };
+};
 
 const hydrateDishes = (
   dishesRows: (typeof dishes.$inferSelect)[],
   ingredientRows: (typeof dishIngredients.$inferSelect)[],
-  ingredientUnits: Map<string, IngredientDto['unit']>,
-): DishWithIngredientsDto[] => {
-  const ingredientMap = new Map<string, DishIngredientDto[]>();
+  ingredientDetails: Map<string, IngredientDetail>,
+): DishWithIngredientsRecord[] => {
+  const ingredientMap = new Map<string, DishIngredientRecord[]>();
   ingredientRows.forEach((row) => {
     const current = ingredientMap.get(row.dishId) ?? [];
-    current.push(toDishIngredientDto(row, ingredientUnits));
+    current.push(toDishIngredientRecord(row, ingredientDetails));
     ingredientMap.set(row.dishId, current);
   });
 
@@ -59,18 +58,34 @@ const hydrateDishes = (
   }));
 };
 
+type IngredientDetail = {
+  name: string;
+  unit: IngredientDto['unit'];
+};
+
+export type DishIngredientRecord = {
+  ingredientId: string;
+  name: string;
+  qtyPerServing: number;
+  unit: IngredientDto['unit'];
+};
+
+export type DishWithIngredientsRecord = DishDto & {
+  ingredients: DishIngredientRecord[];
+};
+
 export const dishesRepository = {
-  async getIngredientUnits(ingredientIds: string[]): Promise<Map<string, IngredientDto['unit']>> {
+  async getIngredientDetails(ingredientIds: string[]): Promise<Map<string, IngredientDetail>> {
     if (ingredientIds.length === 0) {
       return new Map();
     }
     const rows = await db
-      .select({ id: ingredients.id, unit: ingredients.unit })
+      .select({ id: ingredients.id, name: ingredients.name, unit: ingredients.unit })
       .from(ingredients)
       .where(inArray(ingredients.id, ingredientIds));
-    return new Map(rows.map((row) => [row.id, row.unit] as const));
+    return new Map(rows.map((row) => [row.id, { name: row.name, unit: row.unit }] as const));
   },
-  async list(userId: string): Promise<DishWithIngredientsDto[]> {
+  async list(userId: string): Promise<DishWithIngredientsRecord[]> {
     const rows = await db.query.dishes.findMany({
       where: eq(dishes.userId, userId),
       orderBy: asc(dishes.createdAt),
@@ -87,13 +102,13 @@ export const dishesRepository = {
           rows.map((row) => row.id),
         ),
       );
-    const ingredientUnits = await this.getIngredientUnits(
+    const ingredientDetails = await this.getIngredientDetails(
       Array.from(new Set(ingredientRows.map((row) => row.ingredientId))),
     );
-    return hydrateDishes(rows, ingredientRows, ingredientUnits);
+    return hydrateDishes(rows, ingredientRows, ingredientDetails);
   },
 
-  async findById(userId: string, id: string): Promise<DishWithIngredientsDto | null> {
+  async findById(userId: string, id: string): Promise<DishWithIngredientsRecord | null> {
     const row = await db.query.dishes.findFirst({
       where: (fields, { and }) => and(eq(fields.userId, userId), eq(fields.id, id)),
     });
@@ -104,12 +119,12 @@ export const dishesRepository = {
       .select()
       .from(dishIngredients)
       .where(eq(dishIngredients.dishId, id));
-    const ingredientUnits = await this.getIngredientUnits(
+    const ingredientDetails = await this.getIngredientDetails(
       Array.from(new Set(ingredientRows.map((row) => row.ingredientId))),
     );
     return {
       ...toDishDto(row),
-      ingredients: ingredientRows.map((row) => toDishIngredientDto(row, ingredientUnits)),
+      ingredients: ingredientRows.map((row) => toDishIngredientRecord(row, ingredientDetails)),
     };
   },
 

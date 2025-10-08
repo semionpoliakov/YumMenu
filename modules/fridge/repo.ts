@@ -3,20 +3,31 @@ import { and, asc, eq } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { fridgeItems, ingredients } from '@/db/schema';
 
-import type { FridgeItemDto } from '@/contracts';
+import type { Unit } from '@/contracts';
 
 type FridgeRow = {
   id: string;
   ingredientId: string;
+  ingredientName: string;
   quantity: number;
   createdAt: Date;
-  unit: FridgeItemDto['unit'];
+  unit: Unit;
 };
 
-const mapFridgeItem = (row: FridgeRow): FridgeItemDto => ({
+export type FridgeItemRecord = {
+  id: string;
+  ingredientId: string;
+  name: string;
+  quantity: number;
+  unit: Unit;
+  createdAt: string;
+};
+
+const mapFridgeItemRecord = (row: FridgeRow): FridgeItemRecord => ({
   id: row.id,
   ingredientId: row.ingredientId,
-  quantity: row.quantity,
+  name: row.ingredientName,
+  quantity: Number(row.quantity),
   unit: row.unit,
   createdAt: row.createdAt.toISOString(),
 });
@@ -24,6 +35,7 @@ const mapFridgeItem = (row: FridgeRow): FridgeItemDto => ({
 const selectFridgeRow = {
   id: fridgeItems.id,
   ingredientId: fridgeItems.ingredientId,
+  ingredientName: ingredients.name,
   quantity: fridgeItems.quantity,
   createdAt: fridgeItems.createdAt,
   unit: ingredients.unit,
@@ -36,37 +48,37 @@ export type FridgeUpdateData = Partial<
 >;
 
 export const fridgeRepository = {
-  async list(userId: string): Promise<FridgeItemDto[]> {
+  async list(userId: string): Promise<FridgeItemRecord[]> {
     const rows = await db
       .select(selectFridgeRow)
       .from(fridgeItems)
       .innerJoin(ingredients, eq(fridgeItems.ingredientId, ingredients.id))
       .where(eq(fridgeItems.userId, userId))
       .orderBy(asc(fridgeItems.createdAt));
-    return rows.map(mapFridgeItem);
+    return rows.map(mapFridgeItemRecord);
   },
 
-  async findById(userId: string, id: string): Promise<FridgeItemDto | null> {
+  async findById(userId: string, id: string): Promise<FridgeItemRecord | null> {
     const row = await db
       .select(selectFridgeRow)
       .from(fridgeItems)
       .innerJoin(ingredients, eq(fridgeItems.ingredientId, ingredients.id))
       .where(and(eq(fridgeItems.userId, userId), eq(fridgeItems.id, id)))
       .limit(1);
-    return row[0] ? mapFridgeItem(row[0]) : null;
+    return row[0] ? mapFridgeItemRecord(row[0]) : null;
   },
 
-  async findByIngredient(userId: string, ingredientId: string): Promise<FridgeItemDto | null> {
+  async findByIngredient(userId: string, ingredientId: string): Promise<FridgeItemRecord | null> {
     const row = await db
       .select(selectFridgeRow)
       .from(fridgeItems)
       .innerJoin(ingredients, eq(fridgeItems.ingredientId, ingredients.id))
       .where(and(eq(fridgeItems.userId, userId), eq(fridgeItems.ingredientId, ingredientId)))
       .limit(1);
-    return row[0] ? mapFridgeItem(row[0]) : null;
+    return row[0] ? mapFridgeItemRecord(row[0]) : null;
   },
 
-  async insert(userId: string, data: FridgeInsertData): Promise<FridgeItemDto> {
+  async insert(userId: string, data: FridgeInsertData): Promise<FridgeItemRecord> {
     const [row] = await db
       .insert(fridgeItems)
       .values({ ...data, userId })
@@ -83,10 +95,14 @@ export const fridgeRepository = {
     if (!withUnit) {
       throw new Error('Failed to load fridge item');
     }
-    return mapFridgeItem(withUnit);
+    return mapFridgeItemRecord(withUnit);
   },
 
-  async update(userId: string, id: string, data: FridgeUpdateData): Promise<FridgeItemDto | null> {
+  async update(
+    userId: string,
+    id: string,
+    data: FridgeUpdateData,
+  ): Promise<FridgeItemRecord | null> {
     const [row] = await db
       .update(fridgeItems)
       .set(data)
@@ -101,7 +117,7 @@ export const fridgeRepository = {
       .innerJoin(ingredients, eq(fridgeItems.ingredientId, ingredients.id))
       .where(and(eq(fridgeItems.userId, userId), eq(fridgeItems.id, id)))
       .limit(1);
-    return withUnit ? mapFridgeItem(withUnit) : null;
+    return withUnit ? mapFridgeItemRecord(withUnit) : null;
   },
 
   async delete(userId: string, id: string): Promise<void> {

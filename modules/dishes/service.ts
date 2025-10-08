@@ -9,6 +9,7 @@ import {
   dishesRepository,
   type DishIngredientInsert,
   type DishInsertData,
+  type DishWithIngredientsRecord,
   type DishUpdateData,
 } from './repo';
 
@@ -46,9 +47,22 @@ const toIngredientInserts = (
     quantity: item.qtyPerServing,
   }));
 
+const toDishWithIngredients = ({
+  ingredients,
+  ...rest
+}: DishWithIngredientsRecord): DishWithIngredientsDto => ({
+  ...rest,
+  ingredients: ingredients.map(({ name, qtyPerServing, unit }) => ({
+    name,
+    qtyPerServing,
+    unit,
+  })),
+});
+
 export const dishesService = {
   async list(): Promise<DishWithIngredientsDto[]> {
-    return dishesRepository.list(DEFAULT_USER_ID);
+    const dishes = await dishesRepository.list(DEFAULT_USER_ID);
+    return dishes.map(toDishWithIngredients);
   },
 
   async create(payload: DishCreateInput): Promise<DishDto> {

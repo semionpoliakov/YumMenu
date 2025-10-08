@@ -1,23 +1,31 @@
-import type {
-  DishIngredientDto,
-  FridgeItemDto,
-  MenuItemDto,
-  ShoppingListItemDto,
-  Unit,
-} from '@/contracts';
+import type { MenuItemDto, Unit } from '@/contracts';
 
-export type DishIngredientLookup = Record<string, DishIngredientDto[]>;
+type DishIngredient = {
+  ingredientId: string;
+  qtyPerServing: number;
+  unit: Unit;
+};
+
+type FridgeItem = {
+  ingredientId: string;
+  quantity: number;
+  unit: Unit;
+};
+
+export type DishIngredientLookup = Record<string, DishIngredient[]>;
 
 export type CalculateShoppingListArgs = {
   chosenDishes: Array<Pick<MenuItemDto, 'dishId'>>;
   dishIngredients: DishIngredientLookup;
-  fridge: FridgeItemDto[];
+  fridge: FridgeItem[];
   useFridge?: boolean;
 };
 
-export type ShoppingListAggregation = Array<
-  Pick<ShoppingListItemDto, 'ingredientId' | 'quantity' | 'unit'>
->;
+export type ShoppingListAggregation = Array<{
+  ingredientId: string;
+  quantity: number;
+  unit: Unit;
+}>;
 
 export const calculateShoppingList = ({
   chosenDishes,

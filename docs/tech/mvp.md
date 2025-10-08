@@ -38,7 +38,7 @@
 
 **Relations:**
 
-- `categories` — dish types (`soup` | `garnish` | `main` | `experiment`)
+- `mealType` — dish types (`soup` | `garnish` | `main` | `experiment`)
 - `tags` — custom tags (e.g., `vegan`, `meat`, `spicy`)
 - `ingredients` — array of:
   - `ingredientId` — reference to Ingredient
@@ -60,6 +60,8 @@
 - `userId` — owner reference
 - `ingredientId` — reference to Ingredient
 - `quantity` — current stock (in ingredient's `unit`)
+
+**API response:** `{ id, name, quantity, unit, createdAt }`
 
 **Rules:**
 
@@ -104,6 +106,8 @@
 - `quantity` — amount needed (in ingredient's `unit`)
 - `bought` — boolean (marks item as purchased)
 
+**API response:** `{ id, name, quantity, unit, bought }`
+
 ---
 
 ## 2. Menu Generation Algorithm
@@ -112,13 +116,13 @@
 
 ```json
 {
+  "name": "Weekly plan",
   "perDay": {
     "breakfast": 2,
     "lunch": 3,
     "dinner": 2
   },
   "filters": {
-    "includeCategories": ["main", "soup"],
     "includeTags": ["vegan"]
   },
   "requiredDishes": ["dishId1", "dishId2"],
@@ -134,7 +138,6 @@
 
 2. **Build Dish Pool**
    - Filter active dishes (`isActive=true`)
-   - Apply category filters from `includeCategories`
    - Apply tag filters from `includeTags`
    - Match dishes by `mealType`
 
@@ -177,7 +180,7 @@
 
 ### 3.2 Dish Changes
 
-- Update `name`, `mealType`, `categories`, `tags`
+- Update `name`, `mealType`, `tags`
 - Modify ingredient list
 - Toggle `isActive`
 
@@ -243,7 +246,6 @@ POST /dishes
 Body: {
   "name": string,
   "mealType": string,
-  "categories": string[],
   "tags": string[],
   "ingredients": [
     { "ingredientId": string, "qtyPerServing": number }
@@ -303,11 +305,9 @@ DELETE /fridge/:id
 ```json
 POST /menus/generate
 Body: {
+  "name": string,
   "perDay": { [mealType]: number },
-  "filters": {
-    "includeCategories": string[],
-    "includeTags": string[]
-  },
+  "filters": { "includeTags": string[] },
   "requiredDishes": string[],
   "requiredIngredients": string[]
 }

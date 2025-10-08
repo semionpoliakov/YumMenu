@@ -14,6 +14,7 @@ const shoppingListItemSelection = {
   id: shoppingListItems.id,
   shoppingListId: shoppingListItems.shoppingListId,
   ingredientId: shoppingListItems.ingredientId,
+  ingredientName: ingredients.name,
   quantity: shoppingListItems.quantity,
   bought: shoppingListItems.bought,
   unit: ingredients.unit,
@@ -23,6 +24,7 @@ type ShoppingListItemRow = {
   id: string;
   shoppingListId: string;
   ingredientId: string;
+  ingredientName: string;
   quantity: number;
   bought: boolean;
   unit: ShoppingListItemDto['unit'];
@@ -30,8 +32,7 @@ type ShoppingListItemRow = {
 
 const mapShoppingListItem = (row: ShoppingListItemRow): ShoppingListItemDto => ({
   id: row.id,
-  shoppingListId: row.shoppingListId,
-  ingredientId: row.ingredientId,
+  name: row.ingredientName,
   quantity: Number(row.quantity),
   unit: row.unit,
   bought: row.bought,
@@ -39,25 +40,25 @@ const mapShoppingListItem = (row: ShoppingListItemRow): ShoppingListItemDto => (
 
 const shoppingListItemViewSelection = {
   id: shoppingListItems.id,
-  ingredientId: shoppingListItems.ingredientId,
   ingredientName: ingredients.name,
   quantity: shoppingListItems.quantity,
   bought: shoppingListItems.bought,
+  unit: ingredients.unit,
 };
 
 type ShoppingListItemViewRow = {
   id: string;
-  ingredientId: string;
   ingredientName: string;
   quantity: number;
   bought: boolean;
+  unit: ShoppingListItemViewDto['unit'];
 };
 
 const mapShoppingListItemView = (row: ShoppingListItemViewRow): ShoppingListItemViewDto => ({
   id: row.id,
-  ingredientId: row.ingredientId,
-  ingredientName: row.ingredientName,
+  name: row.ingredientName,
   quantity: Number(row.quantity),
+  unit: row.unit,
   bought: row.bought,
 });
 

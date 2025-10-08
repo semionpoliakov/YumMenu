@@ -39,9 +39,13 @@ export const DishIngredientInput = z
   })
   .strict();
 
-export const DishIngredient = DishIngredientInput.extend({
-  unit: Unit,
-});
+export const DishIngredient = z
+  .object({
+    name: z.string(),
+    qtyPerServing: z.number().positive(),
+    unit: Unit,
+  })
+  .strict();
 
 export const DishCreate = z
   .object({
@@ -94,7 +98,7 @@ export const FridgeItemUpdate = z
 
 export const FridgeItem = z.object({
   id: z.string(),
-  ingredientId: z.string(),
+  name: z.string(),
   quantity: z.number().nonnegative(),
   unit: Unit,
   createdAt: z.string(),
@@ -118,8 +122,7 @@ export const MenuItem = z.object({
 
 export const ShoppingListItem = z.object({
   id: z.string(),
-  shoppingListId: z.string(),
-  ingredientId: z.string(),
+  name: z.string(),
   quantity: z.number().nonnegative(),
   unit: Unit,
   bought: z.boolean(),
@@ -170,9 +173,9 @@ export const ShoppingListListItem = z.object({
 
 export const ShoppingListItemView = z.object({
   id: z.string(),
-  ingredientId: z.string(),
-  ingredientName: z.string(),
+  name: z.string(),
   quantity: z.number().nonnegative(),
+  unit: Unit,
   bought: z.boolean(),
 });
 
@@ -212,7 +215,6 @@ const GenerateRequestBase = z
     perDay: PerDaySchema,
     filters: z
       .object({
-        includeCategories: z.array(z.string()).optional(),
         includeTags: z.array(DishTag).optional(),
       })
       .strict()

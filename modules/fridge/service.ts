@@ -4,34 +4,45 @@ import { createId } from '@/lib/ids';
 
 import { ingredientsRepository } from '../ingredients/repo';
 
-import { fridgeRepository, type FridgeInsertData, type FridgeUpdateData } from './repo';
+import {
+  fridgeRepository,
+  type FridgeInsertData,
+  type FridgeItemRecord,
+  type FridgeUpdateData,
+} from './repo';
 
 import type { FridgeItemCreateInput, FridgeItemDto, FridgeItemUpdateInput } from '@/contracts';
 
 const FRIDGE_ITEM_NOT_FOUND_MESSAGE = 'Fridge item not found';
 const INGREDIENT_NOT_FOUND_MESSAGE = 'Ingredient not found';
 
-const now = () => new Date().toISOString();
-
 const buildTransientItem = (params: {
   id?: string;
-  ingredientId: string;
+  name: string;
   unit: FridgeItemDto['unit'];
   createdAt?: string;
 }): FridgeItemDto => {
-  const timestamp = now();
   return {
     id: params.id ?? createId(),
-    ingredientId: params.ingredientId,
+    name: params.name,
     quantity: 0,
     unit: params.unit,
-    createdAt: params.createdAt ?? timestamp,
+    createdAt: params.createdAt ?? new Date().toISOString(),
   };
 };
 
+const toFridgeItemDto = (record: FridgeItemRecord): FridgeItemDto => ({
+  id: record.id,
+  name: record.name,
+  quantity: record.quantity,
+  unit: record.unit,
+  createdAt: record.createdAt,
+});
+
 export const fridgeService = {
   async list(): Promise<FridgeItemDto[]> {
-    return fridgeRepository.list(DEFAULT_USER_ID);
+    const items = await fridgeRepository.list(DEFAULT_USER_ID);
+    return items.map(toFridgeItemDto);
   },
 
   async upsert(payload: FridgeItemCreateInput): Promise<FridgeItemDto> {
@@ -45,9 +56,10 @@ export const fridgeService = {
     if (payload.quantity === 0) {
       if (existing) {
         await fridgeRepository.delete(DEFAULT_USER_ID, existing.id);
-        return { ...existing, quantity: 0 };
+        const item = toFridgeItemDto(existing);
+        return { ...item, quantity: 0 };
       }
-      return buildTransientItem({ ingredientId: payload.ingredientId, unit: ingredient.unit });
+      return buildTransientItem({ name: ingredient.name, unit: ingredient.unit });
     }
 
     if (existing) {
@@ -58,7 +70,7 @@ export const fridgeService = {
       if (!updated) {
         throw notFound(FRIDGE_ITEM_NOT_FOUND_MESSAGE);
       }
-      return updated;
+      return toFridgeItemDto(updated);
     }
 
     const data: FridgeInsertData = {
@@ -66,7 +78,8 @@ export const fridgeService = {
       ingredientId: payload.ingredientId,
       quantity: payload.quantity,
     };
-    return fridgeRepository.insert(DEFAULT_USER_ID, data);
+    const inserted = await fridgeRepository.insert(DEFAULT_USER_ID, data);
+    return toFridgeItemDto(inserted);
   },
 
   async update(id: string, payload: FridgeItemUpdateInput): Promise<FridgeItemDto> {
@@ -77,7 +90,8 @@ export const fridgeService = {
 
     if (payload.quantity === 0) {
       await fridgeRepository.delete(DEFAULT_USER_ID, id);
-      return { ...existing, quantity: 0 };
+      const item = toFridgeItemDto(existing);
+      return { ...item, quantity: 0 };
     }
 
     const updates: FridgeUpdateData = {
@@ -87,7 +101,7 @@ export const fridgeService = {
     if (!updated) {
       throw notFound(FRIDGE_ITEM_NOT_FOUND_MESSAGE);
     }
-    return updated;
+    return toFridgeItemDto(updated);
   },
 
   async delete(id: string): Promise<void> {

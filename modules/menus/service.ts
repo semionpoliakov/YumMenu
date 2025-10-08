@@ -5,21 +5,20 @@ import { DEFAULT_USER_ID } from '@/domain/users/constants';
 import { insufficientDishes, notFound } from '@/lib/errors';
 import { createId } from '@/lib/ids';
 
-import { dishesRepository } from '../dishes/repo';
-import { fridgeRepository } from '../fridge/repo';
+import { dishesRepository, type DishWithIngredientsRecord } from '../dishes/repo';
+import { fridgeRepository, type FridgeItemRecord } from '../fridge/repo';
 
 import { menusRepository, type MenuItemInsertData, type ShoppingListItemInsertData } from './repo';
 
 import type {
   DishTag,
-  DishWithIngredientsDto,
-  FridgeItemDto,
   GenerateResponseDto,
   MealType,
   MenuItemDto,
   MenuListItemDto,
   MenuViewDto,
   ShoppingListDto,
+  ShoppingListItemDto,
   ShoppingListWithItemsDto,
 } from '@/contracts';
 import type { FilledSlot } from '@/domain/generate';
@@ -34,13 +33,12 @@ type GenerateMenuPayload = {
   requiredDishes?: string[];
   requiredIngredients?: string[];
   filters?: {
-    includeCategories?: string[];
     includeTags?: DishTag[];
   };
 };
 
-const buildDishMap = (dishes: DishWithIngredientsDto[]) => {
-  const map = new Map<string, DishWithIngredientsDto>();
+const buildDishMap = (dishes: DishWithIngredientsRecord[]) => {
+  const map = new Map<string, DishWithIngredientsRecord>();
   dishes.forEach((dish) => {
     map.set(dish.id, dish);
   });
@@ -55,7 +53,7 @@ const toShoppingListBase = (list: ShoppingListDto | ShoppingListWithItemsDto): S
   createdAt: list.createdAt,
 });
 
-const buildFridgeIndex = (items: FridgeItemDto[]) => {
+const buildFridgeIndex = (items: FridgeItemRecord[]) => {
   const map = new Map<string, number>();
   items.forEach((item) => {
     map.set(item.ingredientId, item.quantity);
@@ -83,19 +81,65 @@ const deriveShoppingListName = (menuName: string): string => {
   return trimmed.toLowerCase().includes('shopping list') ? trimmed : `${trimmed} shopping list`;
 };
 
+type IngredientSummary = {
+  name: string;
+  unit: ShoppingListItemDto['unit'];
+};
+
+const buildIngredientSummaryIndex = (
+  dishes: DishWithIngredientsRecord[],
+  fridgeItems: FridgeItemRecord[],
+): Map<string, IngredientSummary> => {
+  const index = new Map<string, IngredientSummary>();
+  dishes.forEach((dish) => {
+    dish.ingredients.forEach((ingredient) => {
+      if (!index.has(ingredient.ingredientId)) {
+        index.set(ingredient.ingredientId, {
+          name: ingredient.name,
+          unit: ingredient.unit,
+        });
+      }
+    });
+  });
+  fridgeItems.forEach((item) => {
+    if (!index.has(item.ingredientId)) {
+      index.set(item.ingredientId, {
+        name: item.name,
+        unit: item.unit,
+      });
+    }
+  });
+  return index;
+};
+
+const toShoppingListItemDtos = (
+  items: ShoppingListItemInsertData[],
+  ingredientIndex: Map<string, IngredientSummary>,
+): ShoppingListItemDto[] =>
+  items.map((item) => {
+    const summary = ingredientIndex.get(item.ingredientId);
+    return {
+      id: item.id,
+      name: summary?.name ?? 'Unknown ingredient',
+      quantity: item.quantity,
+      unit: summary?.unit ?? item.unit,
+      bought: item.bought,
+    } satisfies ShoppingListItemDto;
+  });
+
 type SelectionContext = {
   totalSlots: Partial<Record<MealType, number>>;
   requiredDishes?: string[];
   requiredIngredients?: string[];
   includeTags?: DishTag[];
-  dishes: DishWithIngredientsDto[];
-  fridgeItems: FridgeItemDto[];
+  dishes: DishWithIngredientsRecord[];
+  fridgeItems: FridgeItemRecord[];
   excludedDishIds?: Set<string>;
 };
 
 const ensureRequiredDishCounts = (
   requiredIds: Set<string>,
-  dishMap: Map<string, DishWithIngredientsDto>,
+  dishMap: Map<string, DishWithIngredientsRecord>,
   totalSlots: Partial<Record<MealType, number>>,
 ) => {
   const counts = new Map<MealType, number>();
@@ -117,14 +161,14 @@ const ensureRequiredDishCounts = (
 };
 
 const filterDishes = (
-  dishes: DishWithIngredientsDto[],
+  dishes: DishWithIngredientsRecord[],
   excludedDishIds: Set<string>,
-): DishWithIngredientsDto[] =>
+): DishWithIngredientsRecord[] =>
   dishes.filter((dish) => dish.isActive && !excludedDishIds.has(dish.id));
 
 const sanitizeRequiredDishes = (
   required: string[] | undefined,
-  dishMap: Map<string, DishWithIngredientsDto>,
+  dishMap: Map<string, DishWithIngredientsRecord>,
   excludedDishIds: Set<string>,
 ): Set<string> => {
   const set = new Set<string>();
@@ -143,7 +187,7 @@ const sanitizeRequiredDishes = (
 
 const selectDishesForIngredients = (
   ingredientIds: string[],
-  dishes: DishWithIngredientsDto[],
+  dishes: DishWithIngredientsRecord[],
   fridgeIndex: Map<string, number>,
   requiredSet: Set<string>,
   excludedDishIds: Set<string>,
@@ -185,11 +229,11 @@ const ensureRequiredCoverage = (requiredIds: Set<string>, selected: FilledSlot[]
 };
 
 const buildPool = (
-  dishes: DishWithIngredientsDto[],
+  dishes: DishWithIngredientsRecord[],
   totalSlots: Partial<Record<MealType, number>>,
   includeTags: DishTag[] | undefined,
-): Partial<Record<MealType, DishWithIngredientsDto[]>> => {
-  const pool: Partial<Record<MealType, DishWithIngredientsDto[]>> = {};
+): Partial<Record<MealType, DishWithIngredientsRecord[]>> => {
+  const pool: Partial<Record<MealType, DishWithIngredientsRecord[]>> = {};
   (Object.keys(totalSlots) as MealType[]).forEach((mealType) => {
     if ((totalSlots[mealType] ?? 0) <= 0) {
       return;
@@ -252,10 +296,10 @@ const selectDishes = (context: SelectionContext): FilledSlot[] => {
 const buildShoppingListItems = (
   shoppingListId: string,
   chosenItems: Array<Pick<MenuItemDto, 'dishId'>>,
-  dishes: Map<string, DishWithIngredientsDto>,
-  fridgeItems: FridgeItemDto[],
+  dishes: Map<string, DishWithIngredientsRecord>,
+  fridgeItems: FridgeItemRecord[],
 ): ShoppingListItemInsertData[] => {
-  const dishIngredients: Record<string, DishWithIngredientsDto['ingredients']> = {};
+  const dishIngredients: Record<string, DishWithIngredientsRecord['ingredients']> = {};
   dishes.forEach((dish) => {
     dishIngredients[dish.id] = dish.ingredients;
   });
@@ -286,6 +330,7 @@ export const menusService = {
 
     const dishes = await dishesRepository.list(DEFAULT_USER_ID);
     const fridgeItems = await fridgeRepository.list(DEFAULT_USER_ID);
+    const ingredientIndex = buildIngredientSummaryIndex(dishes, fridgeItems);
     const dishMap = buildDishMap(dishes);
     const slots = selectDishes({
       totalSlots,
@@ -297,6 +342,8 @@ export const menusService = {
     });
 
     const menuId = createId();
+    const menuName = payload.name.trim();
+    const shoppingListName = deriveShoppingListName(menuName);
     const menuItemInserts: MenuItemInsertData[] = slots.map((slot) => ({
       id: createId(),
       menuId,
@@ -305,13 +352,12 @@ export const menusService = {
       locked: false,
       cooked: false,
     }));
-    const shoppingListName = deriveShoppingListName(payload.name);
 
     const result = await db.transaction(async (tx) => {
       const menu = await menusRepository.insertMenu(tx, DEFAULT_USER_ID, {
         id: menuId,
         status: 'draft',
-        name: payload.name,
+        name: menuName,
       });
       const storedItems = await menusRepository.insertMenuItems(tx, menuItemInserts);
       const shoppingListId = createId();
@@ -327,9 +373,10 @@ export const menusService = {
         name: shoppingListName,
       });
       await menusRepository.replaceShoppingListItems(tx, shoppingListId, shoppingListItems);
+      const shoppingListItemsDto = toShoppingListItemDtos(shoppingListItems, ingredientIndex);
       const shoppingListWithItems: ShoppingListWithItemsDto = {
         ...shoppingList,
-        items: shoppingListItems.map((item) => ({ ...item })),
+        items: shoppingListItemsDto,
       };
       return {
         menu,
@@ -364,6 +411,7 @@ export const menusService = {
     const totalSlots = normalizeTotalSlots(payload.perDay);
     const dishes = await dishesRepository.list(DEFAULT_USER_ID);
     const fridgeItems = await fridgeRepository.list(DEFAULT_USER_ID);
+    const ingredientIndex = buildIngredientSummaryIndex(dishes, fridgeItems);
     const dishMap = buildDishMap(dishes);
 
     const lockedItems = existingItems.filter((item) => item.locked);
@@ -409,7 +457,8 @@ export const menusService = {
       locked: false,
       cooked: false,
     }));
-    const shoppingListName = deriveShoppingListName(payload.name);
+    const menuName = payload.name.trim();
+    const shoppingListName = deriveShoppingListName(menuName);
 
     const result = await db.transaction(async (tx) => {
       if (unlockedItems.length > 0) {
@@ -430,15 +479,17 @@ export const menusService = {
       );
       await menusRepository.replaceShoppingListItems(tx, shoppingListId, shoppingListItems);
       const shoppingListRecord =
-        (await menusRepository.updateShoppingList(tx, shoppingListId, { name: shoppingListName })) ??
-        existingShoppingList;
+        (await menusRepository.updateShoppingList(tx, shoppingListId, {
+          name: shoppingListName,
+        })) ?? existingShoppingList;
       const shoppingListBase = toShoppingListBase(shoppingListRecord);
       const updatedMenuRecord =
-        (await menusRepository.updateMenu(tx, DEFAULT_USER_ID, id, { name: payload.name })) ??
+        (await menusRepository.updateMenu(tx, DEFAULT_USER_ID, id, { name: menuName })) ??
         existingMenu;
+      const shoppingListItemsDto = toShoppingListItemDtos(shoppingListItems, ingredientIndex);
       const shoppingListWithItems: ShoppingListWithItemsDto = {
         ...shoppingListBase,
-        items: shoppingListItems.map((item) => ({ ...item })),
+        items: shoppingListItemsDto,
       };
       return {
         menu: updatedMenuRecord,

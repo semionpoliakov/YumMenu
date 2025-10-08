@@ -1,4 +1,20 @@
-import type { DishTag, DishWithIngredientsDto, MealType } from '@/contracts';
+import type { DishTag, MealType, Unit } from '@/contracts';
+
+type DishWithIngredients = {
+  id: string;
+  name: string;
+  mealType: MealType;
+  isActive: boolean;
+  tags: DishTag[];
+  description: string;
+  createdAt: string;
+  ingredients: Array<{
+    ingredientId: string;
+    qtyPerServing: number;
+    unit: Unit;
+    name: string;
+  }>;
+};
 
 // ============================================================================
 // buildDishPool - фильтрация блюд по критериям
@@ -8,7 +24,7 @@ export type BuildDishPoolArgs = {
   mealType: MealType;
   tags?: DishTag[];
   isActiveOnly?: boolean;
-  dishes: DishWithIngredientsDto[];
+  dishes: DishWithIngredients[];
 };
 
 export const buildDishPool = ({
@@ -16,7 +32,7 @@ export const buildDishPool = ({
   mealType,
   tags,
   isActiveOnly = true,
-}: BuildDishPoolArgs): DishWithIngredientsDto[] => {
+}: BuildDishPoolArgs): DishWithIngredients[] => {
   // Создаём Set тегов только если теги переданы
   const tagSet = tags && tags.length > 0 ? new Set(tags) : null;
 
@@ -42,7 +58,7 @@ export const buildDishPool = ({
 export type FridgeIndex = ReadonlyMap<string, number>;
 
 export const scoreByFridgeOverlap = (
-  dish: DishWithIngredientsDto,
+  dish: DishWithIngredients,
   fridgeIndex: FridgeIndex,
 ): number => {
   return dish.ingredients.reduce((score, ingredient) => {
@@ -76,7 +92,7 @@ const shuffleArray = <T>(array: T[]): T[] => {
 export type FillSlotsArgs = {
   totalSlots: Partial<Record<MealType, number>>;
   requiredDishes?: string[];
-  pool: Partial<Record<MealType, DishWithIngredientsDto[]>>;
+  pool: Partial<Record<MealType, DishWithIngredients[]>>;
   fridgeIndex: FridgeIndex;
   useFridge?: boolean;
 };
@@ -97,7 +113,7 @@ export const fillSlots = ({
   const usedDishIds = new Set<string>();
 
   // Создаём индекс всех блюд из пула для быстрого поиска по ID
-  const dishIndex = new Map<string, DishWithIngredientsDto>();
+  const dishIndex = new Map<string, DishWithIngredients>();
   for (const dishes of Object.values(pool)) {
     dishes?.forEach((dish) => dishIndex.set(dish.id, dish));
   }
@@ -127,12 +143,12 @@ export const fillSlots = ({
   }
 
   // Шаг 2: Подготавливаем пул блюд для каждого mealType
-  const preparedPool = new Map<MealType, DishWithIngredientsDto[]>();
+  const preparedPool = new Map<MealType, DishWithIngredients[]>();
 
   for (const [mealType, dishes] of Object.entries(pool)) {
     if (!dishes || dishes.length === 0) continue;
 
-    let prepared: DishWithIngredientsDto[];
+    let prepared: DishWithIngredients[];
 
     if (useFridge) {
       prepared = [...dishes]
