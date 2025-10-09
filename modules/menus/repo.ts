@@ -10,7 +10,13 @@ import {
   shoppingLists,
 } from '@/db/schema';
 
-import type { MenuDto, MenuItemViewDto, MenuListItemDto, ShoppingListItemDto, MenuViewDto } from '@/contracts';
+import type {
+  MenuDto,
+  MenuItemViewDto,
+  MenuListItemDto,
+  ShoppingListItemDto,
+  MenuViewDto,
+} from '@/contracts';
 
 const toMenuDto = (row: typeof menus.$inferSelect): MenuDto => ({
   id: row.id,
@@ -22,7 +28,7 @@ const toMenuDto = (row: typeof menus.$inferSelect): MenuDto => ({
 export type MenuItemRecord = {
   id: string;
   menuId: string;
-  mealType: typeof menuItems.$inferSelect['mealType'];
+  mealType: (typeof menuItems.$inferSelect)['mealType'];
   dishId: string;
   locked: boolean;
   cooked: boolean;
@@ -40,7 +46,7 @@ const toMenuItemRecord = (row: typeof menuItems.$inferSelect): MenuItemRecord =>
 export type ShoppingListRecord = {
   id: string;
   menuId: string;
-  status: typeof shoppingLists.$inferSelect['status'];
+  status: (typeof shoppingLists.$inferSelect)['status'];
   name: string;
   createdAt: string;
 };
@@ -97,7 +103,7 @@ const mapMenuListItem = (row: MenuListRow): MenuListItemDto => ({
 
 type MenuItemViewRow = {
   id: string;
-  mealType: typeof menuItems.$inferSelect['mealType'];
+  mealType: (typeof menuItems.$inferSelect)['mealType'];
   dishName: string;
   locked: boolean;
   cooked: boolean;
