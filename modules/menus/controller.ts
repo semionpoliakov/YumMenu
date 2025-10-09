@@ -6,6 +6,8 @@ import {
   type MenuItemDto,
   type MenuListItemDto,
   type MenuViewDto,
+  type MenuDto,
+  PatchMenuStatusRequest,
 } from '@/contracts';
 import { parseBody } from '@/lib/http';
 
@@ -18,6 +20,7 @@ const lockBodySchema = z.object({
   itemIds: z.array(z.string()),
   locked: z.boolean(),
 });
+const patchStatusBodySchema = PatchMenuStatusRequest;
 
 export const menusController = {
   async list(): Promise<MenuListItemDto[]> {
@@ -50,5 +53,10 @@ export const menusController = {
 
   async delete(_request: Request, params: { id: string }): Promise<void> {
     await menusService.delete(params.id);
+  },
+
+  async updateStatus(request: Request, params: { id: string }): Promise<MenuDto> {
+    const body = await parseBody(request, patchStatusBodySchema);
+    return menusService.updateStatus(params.id, body.status);
   },
 };

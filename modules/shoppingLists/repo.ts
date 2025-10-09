@@ -97,7 +97,6 @@ export const shoppingListsRepository = {
     const shoppingListRow = await db
       .select({
         id: shoppingLists.id,
-        menuId: shoppingLists.menuId,
         status: shoppingLists.status,
         name: shoppingLists.name,
         createdAt: shoppingLists.createdAt,
@@ -120,7 +119,6 @@ export const shoppingListsRepository = {
 
     return {
       id: row.id,
-      menuId: row.menuId,
       status: row.status,
       name: row.name,
       createdAt: row.createdAt.toISOString(),

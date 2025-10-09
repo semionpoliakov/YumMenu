@@ -115,7 +115,7 @@ export const MenuItem = z.object({
   id: z.string(),
   menuId: z.string(),
   mealType: MealType,
-  dishId: z.string(),
+  dishName: z.string(),
   locked: z.boolean(),
   cooked: z.boolean(),
 });
@@ -130,7 +130,6 @@ export const ShoppingListItem = z.object({
 
 export const ShoppingList = z.object({
   id: z.string(),
-  menuId: z.string(),
   status: z.enum(StatusEnum),
   name: z.string(),
   createdAt: z.string(),
@@ -150,7 +149,6 @@ export const MenuListItem = z.object({
 export const MenuItemView = z.object({
   id: z.string(),
   mealType: MealType,
-  dishId: z.string(),
   dishName: z.string(),
   locked: z.boolean(),
   cooked: z.boolean(),
@@ -181,7 +179,6 @@ export const ShoppingListItemView = z.object({
 
 export const ShoppingListView = z.object({
   id: z.string(),
-  menuId: z.string(),
   status: z.enum(StatusEnum),
   name: z.string(),
   createdAt: z.string(),
@@ -243,6 +240,14 @@ export const GenerateResponse = z.object({
   }),
 });
 
+export const PatchMenuStatusRequest = z
+  .object({
+    status: z.enum(StatusEnum),
+  })
+  .strict();
+
+export const PatchMenuStatusResponse = Menu;
+
 export type Unit = z.infer<typeof Unit>;
 export type DishTag = z.infer<typeof DishTag>;
 export type MealType = z.infer<typeof MealType>;
@@ -271,6 +276,8 @@ export type MenuViewDto = z.infer<typeof MenuView>;
 export type ShoppingListListItemDto = z.infer<typeof ShoppingListListItem>;
 export type ShoppingListItemViewDto = z.infer<typeof ShoppingListItemView>;
 export type ShoppingListViewDto = z.infer<typeof ShoppingListView>;
+export type PatchMenuStatusRequestDto = z.infer<typeof PatchMenuStatusRequest>;
+export type PatchMenuStatusResponseDto = z.infer<typeof PatchMenuStatusResponse>;
 
 export const ErrorCode = z.enum([
   'VALIDATION_ERROR',
@@ -479,6 +486,17 @@ export const contracts = c.router({
         200: z.array(MenuItem),
         400: ErrorResponse,
         404: ErrorResponse,
+      },
+    },
+    updateStatus: {
+      method: 'PATCH',
+      path: '/api/menus/:id/status',
+      body: PatchMenuStatusRequest,
+      responses: {
+        200: PatchMenuStatusResponse,
+        400: ErrorResponse,
+        404: ErrorResponse,
+        409: ErrorResponse,
       },
     },
     delete: {

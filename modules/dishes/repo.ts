@@ -135,6 +135,20 @@ export const dishesRepository = {
     return row ? toDishDto(row) : null;
   },
 
+  async getNamesByIds(userId: string, ids: string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) {
+      return new Map();
+    }
+    const rows = await db
+      .select({
+        id: dishes.id,
+        name: dishes.name,
+      })
+      .from(dishes)
+      .where(and(eq(dishes.userId, userId), inArray(dishes.id, ids)));
+    return new Map(rows.map((row) => [row.id, row.name] as const));
+  },
+
   async insertDish(client: DbOrTx, userId: string, data: DishInsertData): Promise<DishDto> {
     const [row] = await getClient(client)
       .insert(dishes)

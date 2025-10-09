@@ -10,16 +10,7 @@ import {
   shoppingLists,
 } from '@/db/schema';
 
-import type {
-  MenuDto,
-  MenuItemDto,
-  MenuItemViewDto,
-  MenuListItemDto,
-  ShoppingListDto,
-  ShoppingListItemDto,
-  ShoppingListWithItemsDto,
-  MenuViewDto,
-} from '@/contracts';
+import type { MenuDto, MenuItemViewDto, MenuListItemDto, ShoppingListItemDto, MenuViewDto } from '@/contracts';
 
 const toMenuDto = (row: typeof menus.$inferSelect): MenuDto => ({
   id: row.id,
@@ -28,7 +19,16 @@ const toMenuDto = (row: typeof menus.$inferSelect): MenuDto => ({
   createdAt: row.createdAt.toISOString(),
 });
 
-const toMenuItemDto = (row: typeof menuItems.$inferSelect): MenuItemDto => ({
+export type MenuItemRecord = {
+  id: string;
+  menuId: string;
+  mealType: typeof menuItems.$inferSelect['mealType'];
+  dishId: string;
+  locked: boolean;
+  cooked: boolean;
+};
+
+const toMenuItemRecord = (row: typeof menuItems.$inferSelect): MenuItemRecord => ({
   id: row.id,
   menuId: row.menuId,
   mealType: row.mealType,
@@ -37,7 +37,15 @@ const toMenuItemDto = (row: typeof menuItems.$inferSelect): MenuItemDto => ({
   cooked: row.cooked,
 });
 
-const toShoppingListDto = (row: typeof shoppingLists.$inferSelect): ShoppingListDto => ({
+export type ShoppingListRecord = {
+  id: string;
+  menuId: string;
+  status: typeof shoppingLists.$inferSelect['status'];
+  name: string;
+  createdAt: string;
+};
+
+const toShoppingListRecord = (row: typeof shoppingLists.$inferSelect): ShoppingListRecord => ({
   id: row.id,
   menuId: row.menuId,
   status: row.status,
@@ -89,8 +97,7 @@ const mapMenuListItem = (row: MenuListRow): MenuListItemDto => ({
 
 type MenuItemViewRow = {
   id: string;
-  mealType: MenuItemDto['mealType'];
-  dishId: string;
+  mealType: typeof menuItems.$inferSelect['mealType'];
   dishName: string;
   locked: boolean;
   cooked: boolean;
@@ -99,7 +106,6 @@ type MenuItemViewRow = {
 const mapMenuItemView = (row: MenuItemViewRow): MenuItemViewDto => ({
   id: row.id,
   mealType: row.mealType,
-  dishId: row.dishId,
   dishName: row.dishName,
   locked: row.locked,
   cooked: row.cooked,
@@ -123,6 +129,10 @@ export type ShoppingListItemInsertData = {
   quantity: number;
   unit: ShoppingListItemDto['unit'];
   bought: boolean;
+};
+
+export type ShoppingListWithItemsRecord = ShoppingListRecord & {
+  items: ShoppingListItemDto[];
 };
 
 const getClient = (client?: DbOrTx): DbOrTx => client ?? db;
@@ -155,7 +165,6 @@ export const menusRepository = {
       .select({
         id: menuItems.id,
         mealType: menuItems.mealType,
-        dishId: menuItems.dishId,
         dishName: dishes.name,
         locked: menuItems.locked,
         cooked: menuItems.cooked,
@@ -186,8 +195,8 @@ export const menusRepository = {
     id: string,
   ): Promise<{
     menu: MenuDto;
-    items: MenuItemDto[];
-    shoppingList: ShoppingListWithItemsDto | null;
+    items: MenuItemRecord[];
+    shoppingList: ShoppingListWithItemsRecord | null;
   } | null> {
     const menuRow = await db.query.menus.findFirst({
       where: (fields, { and }) => and(eq(fields.userId, userId), eq(fields.id, id)),
@@ -206,7 +215,7 @@ export const menusRepository = {
       where: eq(shoppingLists.menuId, id),
     });
 
-    let shoppingList: ShoppingListWithItemsDto | null = null;
+    let shoppingList: ShoppingListWithItemsRecord | null = null;
     if (shoppingListRow) {
       const itemRows = await db
         .select(shoppingListItemSelection)
@@ -214,14 +223,14 @@ export const menusRepository = {
         .innerJoin(ingredients, eq(shoppingListItems.ingredientId, ingredients.id))
         .where(eq(shoppingListItems.shoppingListId, shoppingListRow.id));
       shoppingList = {
-        ...toShoppingListDto(shoppingListRow),
+        ...toShoppingListRecord(shoppingListRow),
         items: itemRows.map(mapShoppingListItem),
       };
     }
 
     return {
       menu: toMenuDto(menuRow),
-      items: itemsRows.map(toMenuItemDto),
+      items: itemsRows.map(toMenuItemRecord),
       shoppingList,
     };
   },
@@ -251,12 +260,12 @@ export const menusRepository = {
     return row ? toMenuDto(row) : null;
   },
 
-  async insertMenuItems(client: DbOrTx, items: MenuItemInsertData[]): Promise<MenuItemDto[]> {
+  async insertMenuItems(client: DbOrTx, items: MenuItemInsertData[]): Promise<MenuItemRecord[]> {
     if (items.length === 0) {
       return [];
     }
     const rows = await getClient(client).insert(menuItems).values(items).returning();
-    return rows.map(toMenuItemDto);
+    return rows.map(toMenuItemRecord);
   },
 
   async deleteMenuItems(client: DbOrTx, menuId: string, itemIds?: string[]): Promise<void> {
@@ -270,13 +279,13 @@ export const menusRepository = {
     await dbClient.delete(menuItems).where(eq(menuItems.menuId, menuId));
   },
 
-  async findMenuItems(menuId: string): Promise<MenuItemDto[]> {
+  async findMenuItems(menuId: string): Promise<MenuItemRecord[]> {
     const rows = await db
       .select()
       .from(menuItems)
       .where(eq(menuItems.menuId, menuId))
       .orderBy(asc(menuItems.id));
-    return rows.map(toMenuItemDto);
+    return rows.map(toMenuItemRecord);
   },
 
   async setMenuItemsLock(
@@ -284,7 +293,7 @@ export const menusRepository = {
     menuId: string,
     itemIds: string[],
     locked: boolean,
-  ): Promise<MenuItemDto[]> {
+  ): Promise<MenuItemRecord[]> {
     if (itemIds.length === 0) {
       return [];
     }
@@ -293,7 +302,7 @@ export const menusRepository = {
       .set({ locked })
       .where(and(eq(menuItems.menuId, menuId), inArray(menuItems.id, itemIds)))
       .returning();
-    return rows.map(toMenuItemDto);
+    return rows.map(toMenuItemRecord);
   },
 
   async updateMenuItem(
@@ -301,34 +310,37 @@ export const menusRepository = {
     menuId: string,
     itemId: string,
     data: MenuItemUpdateData,
-  ): Promise<MenuItemDto | null> {
+  ): Promise<MenuItemRecord | null> {
     const [row] = await getClient(client)
       .update(menuItems)
       .set(data)
       .where(and(eq(menuItems.menuId, menuId), eq(menuItems.id, itemId)))
       .returning();
-    return row ? toMenuItemDto(row) : null;
+    return row ? toMenuItemRecord(row) : null;
   },
 
-  async insertShoppingList(client: DbOrTx, data: ShoppingListInsertData): Promise<ShoppingListDto> {
+  async insertShoppingList(
+    client: DbOrTx,
+    data: ShoppingListInsertData,
+  ): Promise<ShoppingListRecord> {
     const [row] = await getClient(client).insert(shoppingLists).values(data).returning();
     if (!row) {
       throw new Error('Failed to create shopping list');
     }
-    return toShoppingListDto(row);
+    return toShoppingListRecord(row);
   },
 
   async updateShoppingList(
     client: DbOrTx,
     id: string,
     data: Partial<Omit<typeof shoppingLists.$inferInsert, 'id' | 'menuId' | 'createdAt'>>,
-  ): Promise<ShoppingListDto | null> {
+  ): Promise<ShoppingListRecord | null> {
     const [row] = await getClient(client)
       .update(shoppingLists)
       .set(data)
       .where(eq(shoppingLists.id, id))
       .returning();
-    return row ? toShoppingListDto(row) : null;
+    return row ? toShoppingListRecord(row) : null;
   },
 
   async replaceShoppingListItems(
@@ -374,7 +386,7 @@ export const menusRepository = {
     await dbClient.delete(menus).where(and(eq(menus.id, id), eq(menus.userId, userId)));
   },
 
-  async findShoppingListWithItems(id: string): Promise<ShoppingListWithItemsDto | null> {
+  async findShoppingListWithItems(id: string): Promise<ShoppingListWithItemsRecord | null> {
     const row = await db.query.shoppingLists.findFirst({ where: eq(shoppingLists.id, id) });
     if (!row) {
       return null;
@@ -385,7 +397,7 @@ export const menusRepository = {
       .innerJoin(ingredients, eq(shoppingListItems.ingredientId, ingredients.id))
       .where(eq(shoppingListItems.shoppingListId, id));
     return {
-      ...toShoppingListDto(row),
+      ...toShoppingListRecord(row),
       items: itemsRows.map(mapShoppingListItem),
     };
   },

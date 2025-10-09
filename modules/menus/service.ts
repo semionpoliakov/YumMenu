@@ -1,25 +1,34 @@
+import { and, eq } from 'drizzle-orm';
+
 import { db } from '@/db/client';
+import { menus, shoppingLists } from '@/db/schema';
 import { calculateShoppingList, fillSlots } from '@/domain/generate';
 import { buildDishPool, scoreByFridgeOverlap } from '@/domain/generate/prioritization';
 import { DEFAULT_USER_ID } from '@/domain/users/constants';
-import { insufficientDishes, notFound } from '@/lib/errors';
+import { insufficientDishes, invalidData, notFound } from '@/lib/errors';
 import { createId } from '@/lib/ids';
 
 import { dishesRepository, type DishWithIngredientsRecord } from '../dishes/repo';
 import { fridgeRepository, type FridgeItemRecord } from '../fridge/repo';
 
-import { menusRepository, type MenuItemInsertData, type ShoppingListItemInsertData } from './repo';
+import {
+  menusRepository,
+  type MenuItemInsertData,
+  type MenuItemRecord,
+  type ShoppingListItemInsertData,
+  type ShoppingListRecord,
+  type ShoppingListWithItemsRecord,
+} from './repo';
 
 import type {
   DishTag,
   GenerateResponseDto,
   MealType,
+  MenuDto,
   MenuItemDto,
   MenuListItemDto,
   MenuViewDto,
-  ShoppingListDto,
   ShoppingListItemDto,
-  ShoppingListWithItemsDto,
 } from '@/contracts';
 import type { FilledSlot } from '@/domain/generate';
 
@@ -45,7 +54,29 @@ const buildDishMap = (dishes: DishWithIngredientsRecord[]) => {
   return map;
 };
 
-const toShoppingListBase = (list: ShoppingListDto | ShoppingListWithItemsDto): ShoppingListDto => ({
+type ShoppingListResponseBase = {
+  id: string;
+  status: ShoppingListRecord['status'];
+  name: string;
+  createdAt: string;
+};
+
+const toShoppingListResponse = (list: ShoppingListRecord): ShoppingListResponseBase => ({
+  id: list.id,
+  status: list.status,
+  name: list.name,
+  createdAt: list.createdAt,
+});
+
+const toShoppingListWithItemsResponse = (
+  list: ShoppingListRecord,
+  items: ShoppingListItemDto[],
+): GenerateResponseDto['shoppingList'] => ({
+  ...toShoppingListResponse(list),
+  items,
+});
+
+const stripShoppingListItems = (list: ShoppingListWithItemsRecord): ShoppingListRecord => ({
   id: list.id,
   menuId: list.menuId,
   status: list.status,
@@ -110,6 +141,35 @@ const buildIngredientSummaryIndex = (
     }
   });
   return index;
+};
+
+const buildDishNameMap = (dishes: Map<string, DishWithIngredientsRecord>): Map<string, string> => {
+  const map = new Map<string, string>();
+  dishes.forEach((dish, id) => {
+    map.set(id, dish.name);
+  });
+  return map;
+};
+
+const mapMenuItemsToDtos = (
+  items: MenuItemRecord[],
+  dishNames: Map<string, string>,
+): MenuItemDto[] =>
+  items.map((item) => ({
+    id: item.id,
+    menuId: item.menuId,
+    mealType: item.mealType,
+    dishName: dishNames.get(item.dishId) ?? 'Unknown dish',
+    locked: item.locked,
+    cooked: item.cooked,
+  }));
+
+const loadDishNames = async (dishIds: Iterable<string>): Promise<Map<string, string>> => {
+  const uniqueIds = Array.from(new Set(Array.from(dishIds)));
+  if (uniqueIds.length === 0) {
+    return new Map();
+  }
+  return dishesRepository.getNamesByIds(DEFAULT_USER_ID, uniqueIds);
 };
 
 const toShoppingListItemDtos = (
@@ -295,7 +355,7 @@ const selectDishes = (context: SelectionContext): FilledSlot[] => {
 
 const buildShoppingListItems = (
   shoppingListId: string,
-  chosenItems: Array<Pick<MenuItemDto, 'dishId'>>,
+  chosenItems: Array<Pick<MenuItemRecord, 'dishId'>>,
   dishes: Map<string, DishWithIngredientsRecord>,
   fridgeItems: FridgeItemRecord[],
 ): ShoppingListItemInsertData[] => {
@@ -353,6 +413,8 @@ export const menusService = {
       cooked: false,
     }));
 
+    const dishNameMap = buildDishNameMap(dishMap);
+
     const result = await db.transaction(async (tx) => {
       const menu = await menusRepository.insertMenu(tx, DEFAULT_USER_ID, {
         id: menuId,
@@ -374,18 +436,19 @@ export const menusService = {
       });
       await menusRepository.replaceShoppingListItems(tx, shoppingListId, shoppingListItems);
       const shoppingListItemsDto = toShoppingListItemDtos(shoppingListItems, ingredientIndex);
-      const shoppingListWithItems: ShoppingListWithItemsDto = {
-        ...shoppingList,
-        items: shoppingListItemsDto,
-      };
       return {
         menu,
         items: storedItems,
-        shoppingList: shoppingListWithItems,
-      } satisfies GenerateResponseDto;
+        shoppingList,
+        shoppingListItems: shoppingListItemsDto,
+      };
     });
 
-    return result;
+    return {
+      menu: result.menu,
+      items: mapMenuItemsToDtos(result.items, dishNameMap),
+      shoppingList: toShoppingListWithItemsResponse(result.shoppingList, result.shoppingListItems),
+    };
   },
 
   async get(id: string): Promise<MenuViewDto> {
@@ -413,6 +476,7 @@ export const menusService = {
     const fridgeItems = await fridgeRepository.list(DEFAULT_USER_ID);
     const ingredientIndex = buildIngredientSummaryIndex(dishes, fridgeItems);
     const dishMap = buildDishMap(dishes);
+    const dishNameMap = buildDishNameMap(dishMap);
 
     const lockedItems = existingItems.filter((item) => item.locked);
     const unlockedItems = existingItems.filter((item) => !item.locked);
@@ -481,24 +545,24 @@ export const menusService = {
       const shoppingListRecord =
         (await menusRepository.updateShoppingList(tx, shoppingListId, {
           name: shoppingListName,
-        })) ?? existingShoppingList;
-      const shoppingListBase = toShoppingListBase(shoppingListRecord);
+        })) ?? stripShoppingListItems(existingShoppingList);
       const updatedMenuRecord =
         (await menusRepository.updateMenu(tx, DEFAULT_USER_ID, id, { name: menuName })) ??
         existingMenu;
       const shoppingListItemsDto = toShoppingListItemDtos(shoppingListItems, ingredientIndex);
-      const shoppingListWithItems: ShoppingListWithItemsDto = {
-        ...shoppingListBase,
-        items: shoppingListItemsDto,
-      };
       return {
         menu: updatedMenuRecord,
         items: [...lockedItems, ...storedNewItems],
-        shoppingList: shoppingListWithItems,
-      } satisfies GenerateResponseDto;
+        shoppingList: shoppingListRecord,
+        shoppingListItems: shoppingListItemsDto,
+      };
     });
 
-    return result;
+    return {
+      menu: result.menu,
+      items: mapMenuItemsToDtos(result.items, dishNameMap),
+      shoppingList: toShoppingListWithItemsResponse(result.shoppingList, result.shoppingListItems),
+    };
   },
 
   async updateMenuItemCooked(
@@ -514,7 +578,8 @@ export const menusService = {
     if (!item) {
       throw notFound(MENU_ITEM_NOT_FOUND_MESSAGE);
     }
-    return item;
+    const dishNames = await loadDishNames([item.dishId]);
+    return mapMenuItemsToDtos([item], dishNames)[0]!;
   },
 
   async lockMenuItems(menuId: string, itemIds: string[], locked: boolean): Promise<MenuItemDto[]> {
@@ -528,7 +593,42 @@ export const menusService = {
     if (invalid.length > 0) {
       throw notFound(MENU_ITEM_NOT_FOUND_MESSAGE);
     }
-    return menusRepository.setMenuItemsLock(db, menuId, itemIds, locked);
+    const updatedItems = await menusRepository.setMenuItemsLock(db, menuId, itemIds, locked);
+    const dishNames = await loadDishNames(updatedItems.map((item) => item.dishId));
+    return mapMenuItemsToDtos(updatedItems, dishNames);
+  },
+
+  async updateStatus(id: string, status: MenuDto['status']): Promise<MenuDto> {
+    const menu = await menusRepository.findMenu(DEFAULT_USER_ID, id);
+    if (!menu) {
+      throw notFound(MENU_NOT_FOUND_MESSAGE);
+    }
+    if (menu.status === status) {
+      throw invalidData('Menu already has this status', 409);
+    }
+
+    const updated = await db.transaction(async (tx) => {
+      const [menuRow] = await tx
+        .update(menus)
+        .set({ status })
+        .where(and(eq(menus.id, id), eq(menus.userId, DEFAULT_USER_ID)))
+        .returning();
+
+      if (!menuRow) {
+        throw new Error('Failed to update menu status');
+      }
+
+      await tx.update(shoppingLists).set({ status }).where(eq(shoppingLists.menuId, id));
+
+      return menuRow;
+    });
+
+    return {
+      id: updated.id,
+      status: updated.status,
+      name: updated.name,
+      createdAt: updated.createdAt.toISOString(),
+    };
   },
 
   async delete(menuId: string): Promise<void> {

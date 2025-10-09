@@ -1,4 +1,4 @@
-import type { MenuItemDto, Unit } from '@/contracts';
+import type { Unit } from '@/contracts';
 
 type DishIngredient = {
   ingredientId: string;
@@ -15,7 +15,7 @@ type FridgeItem = {
 export type DishIngredientLookup = Record<string, DishIngredient[]>;
 
 export type CalculateShoppingListArgs = {
-  chosenDishes: Array<Pick<MenuItemDto, 'dishId'>>;
+  chosenDishes: Array<{ dishId: string }>;
   dishIngredients: DishIngredientLookup;
   fridge: FridgeItem[];
   useFridge?: boolean;
