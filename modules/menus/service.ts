@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '@/db/client';
 import { menus, shoppingLists } from '@/db/schema';
 import { calculateShoppingList, fillSlots } from '@/domain/generate';
-import { buildDishPool, scoreByFridgeOverlap } from '@/domain/generate/prioritization';
+import { buildDishPool, scoreByFridgeOverlap } from '@/domain/generate/generation';
 import { DEFAULT_USER_ID } from '@/domain/users/constants';
 import { insufficientDishes, invalidData, notFound } from '@/lib/errors';
 import { createId } from '@/lib/ids';
@@ -38,7 +38,7 @@ const LOCKED_EXCEED_MESSAGE = 'Locked items exceed requested slots';
 
 type GenerateMenuPayload = {
   name: string;
-  perDay: Partial<Record<MealType, number>>;
+  totalSlots: Partial<Record<MealType, number>>;
   requiredDishes?: string[];
   requiredIngredients?: string[];
   filters?: {
@@ -386,7 +386,7 @@ export const menusService = {
   },
 
   async generate(payload: GenerateMenuPayload): Promise<GenerateResponseDto> {
-    const totalSlots = normalizeTotalSlots(payload.perDay);
+    const totalSlots = normalizeTotalSlots(payload.totalSlots);
 
     const dishes = await dishesRepository.list(DEFAULT_USER_ID);
     const fridgeItems = await fridgeRepository.list(DEFAULT_USER_ID);
@@ -471,7 +471,7 @@ export const menusService = {
       shoppingList: existingShoppingList,
     } = aggregate;
 
-    const totalSlots = normalizeTotalSlots(payload.perDay);
+    const totalSlots = normalizeTotalSlots(payload.totalSlots);
     const dishes = await dishesRepository.list(DEFAULT_USER_ID);
     const fridgeItems = await fridgeRepository.list(DEFAULT_USER_ID);
     const ingredientIndex = buildIngredientSummaryIndex(dishes, fridgeItems);

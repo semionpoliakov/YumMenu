@@ -1,2 +1,2 @@
-export * from './prioritization';
+export * from './generation';
 export * from './shoppingList';

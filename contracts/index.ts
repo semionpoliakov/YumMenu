@@ -187,7 +187,7 @@ export const ShoppingListView = z.object({
 
 const slotCountSchema = z.number().int().nonnegative();
 
-const PerDaySchema = z
+const TotalSlotsSchema = z
   .object({
     breakfast: slotCountSchema.optional(),
     lunch: slotCountSchema.optional(),
@@ -209,7 +209,7 @@ const PerDaySchema = z
 const GenerateRequestBase = z
   .object({
     name: z.string().trim().min(1),
-    perDay: PerDaySchema,
+    totalSlots: TotalSlotsSchema,
     filters: z
       .object({
         includeTags: z.array(DishTag).optional(),
@@ -223,11 +223,11 @@ const GenerateRequestBase = z
   .strict();
 
 export const GenerateRequest = GenerateRequestBase.superRefine((input, ctx) => {
-  if (Object.keys(input.perDay).length === 0) {
+  if (Object.keys(input.totalSlots).length === 0) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'perDay must not be empty',
-      path: ['perDay'],
+      message: 'totalSlots must not be empty',
+      path: ['totalSlots'],
     });
   }
 });

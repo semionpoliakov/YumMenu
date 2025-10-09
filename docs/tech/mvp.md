@@ -117,7 +117,7 @@
 ```json
 {
   "name": "Weekly plan",
-  "perDay": {
+  "totalSlots": {
     "breakfast": 2,
     "lunch": 3,
     "dinner": 2
@@ -133,7 +133,7 @@
 ### 2.2 Generation Steps
 
 1. **Create Slot Structure**
-   - Generate empty slots based on `perDay` configuration
+   - Generate empty slots based on `totalSlots` configuration
    - Each slot contains: `mealType`, `position`
 
 2. **Build Dish Pool**
@@ -306,7 +306,7 @@ DELETE /fridge/:id
 POST /menus/generate
 Body: {
   "name": string,
-  "perDay": { [mealType]: number },
+  "totalSlots": { [mealType]: number },
   "filters": { "includeTags": string[] },
   "requiredDishes": string[],
   "requiredIngredients": string[]
@@ -411,7 +411,7 @@ Body: { "bought": boolean }
 
 **isActive** — Resource is available for menu generation. Inactive items are hidden but not deleted.
 
-**perDay** — Number of meals per meal type. Defines menu structure.
+**totalSlots** — Number of meals per meal type. Defines menu structure.
 
 **mealType** — Time-based meal category. Determines when dish is eaten.
 
