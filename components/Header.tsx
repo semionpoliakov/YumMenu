@@ -29,12 +29,7 @@ export function Header({ title, rightSlot, className, showBack = true }: HeaderP
     >
       <div className="flex justify-start">
         {shouldShowBack ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.back()}
-            aria-label="Go back"
-          >
+          <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Go back">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         ) : null}

@@ -4,8 +4,8 @@ import { useParams } from 'next/navigation';
 
 import { Header } from '@/components/Header';
 import { Card, CardContent } from '@/components/ui/card';
-import { useShoppingListQuery } from '@/data-access/hooks';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useShoppingListQuery } from '@/data-access/hooks';
 
 import { ShoppingListItemsTable } from './_components/ShoppingListItemsTable';
 
@@ -19,9 +19,7 @@ export default function ShoppingListDetailPage() {
     <div className="space-y-6 pb-6">
       <Header title={list?.name ?? 'Shopping List'} />
 
-      {listQuery.isLoading ? (
-        <Skeleton className="h-48 w-full rounded-xl" />
-      ) : null}
+      {listQuery.isLoading ? <Skeleton className="h-48 w-full rounded-xl" /> : null}
 
       {listQuery.error ? (
         <Card>
