@@ -12,14 +12,15 @@ The application runs on Next.js App Router with all pages rendered as client com
 ## Screen Map
 
 - `/` – Dashboard with quick links to feature sections.
-- `/ingredients` – Manage ingredient library (create, edit, deactivate, delete).
-- `/dishes` – Manage dishes with ingredient composition and tags.
-- `/fridge` – Track fridge inventory with inline quantity updates.
-- `/generate` – Generate menus based on meal slots, tags, and required items.
+- `/ingredients` – Manage ingredient library (create/edit pages at `/ingredients/create` and `/ingredients/[id]/edit`).
+- `/dishes` – Manage dishes with dedicated create/edit screens.
+- `/fridge` – Review fridge inventory with card actions (`/fridge/create`, `/fridge/[id]/edit` for quantity updates).
+- `/generate` – Enter menu name and slot counts, redirecting to the checkout flow.
+- `/checkout/[id]` – Lock dishes, regenerate, or finalise the in-progress menu.
 - `/menus` – List all generated menus.
-  - `/menus/[id]` – Menu detail with lock/cook toggles and status management.
-- `/shopping-lists` – List generated shopping lists.
-  - `/shopping-lists/[id]` – Shopping list detail with bought toggles.
+  - `/menus/[id]` – Menu detail with cook/lock toggles.
+  - `/menus/[id]/options` – Entry point to menu detail or the linked shopping list.
+- `/shopping-lists/[id]` – Shopping list detail with bought toggles (accessible via menu options).
 
 ## Data Access Layer
 

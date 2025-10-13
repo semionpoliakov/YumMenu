@@ -2,16 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Card, CardContent } from '@/components/ui/card';
 import { useToggleShoppingListItem } from '@/data-access/hooks';
 
 import type { ShoppingListItemDto } from '@/contracts';
@@ -37,42 +29,29 @@ export function ShoppingListItemsTable({ listId, items }: ShoppingListItemsTable
   };
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Item</TableHead>
-          <TableHead>Quantity</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead className="text-right">Action</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {localItems.map((item) => (
-          <TableRow key={item.id} className={item.bought ? 'bg-muted/40' : undefined}>
-            <TableCell className="font-medium">{item.name}</TableCell>
-            <TableCell>
-              {item.quantity} {item.unit}
-            </TableCell>
-            <TableCell>
-              <Badge variant={item.bought ? 'secondary' : 'outline'}>
-                {item.bought ? 'Bought' : 'Pending'}
-              </Badge>
-            </TableCell>
-            <TableCell className="text-right">
-              <Button
-                size="sm"
-                variant={item.bought ? 'outline' : 'secondary'}
-                onClick={() => {
-                  void handleToggle(item.id, !item.bought);
-                }}
-                disabled={toggleMutation.isPending}
-              >
-                {item.bought ? 'Mark unbought' : 'Mark bought'}
-              </Button>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <div className="space-y-3">
+      {localItems.map((item) => (
+        <Card key={item.id} className={item.bought ? 'bg-muted/40' : undefined}>
+          <CardContent className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">{item.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {item.quantity} {item.unit}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant={item.bought ? 'outline' : 'secondary'}
+              onClick={() => {
+                void handleToggle(item.id, !item.bought);
+              }}
+              disabled={toggleMutation.isPending}
+            >
+              {item.bought ? 'Undo' : 'Bought'}
+            </Button>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   );
 }

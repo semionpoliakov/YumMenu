@@ -1,7 +1,7 @@
 'use client';
 
 import { ArrowLeft } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -12,26 +12,35 @@ type HeaderProps = {
   title: string;
   rightSlot?: ReactNode;
   className?: string;
+  showBack?: boolean;
 };
 
-export function Header({ title, rightSlot, className }: HeaderProps) {
+export function Header({ title, rightSlot, className, showBack = true }: HeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const shouldShowBack = showBack && pathname !== '/';
 
   return (
-    <header className={cn('flex items-center justify-between gap-2', className)}>
-      <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.back()}
-          aria-label="Go back"
-          className="-ml-2"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-lg font-semibold sm:text-xl">{title}</h1>
+    <header
+      className={cn(
+        'grid grid-cols-[2.5rem_auto_2.5rem] items-center gap-2 text-center sm:grid-cols-[2.75rem_auto_2.75rem]',
+        className,
+      )}
+    >
+      <div className="flex justify-start">
+        {shouldShowBack ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.back()}
+            aria-label="Go back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        ) : null}
       </div>
-      {rightSlot ? <div className="flex shrink-0 items-center gap-2">{rightSlot}</div> : null}
+      <h1 className="text-xl font-semibold sm:text-2xl">{title}</h1>
+      <div className="flex justify-end">{rightSlot}</div>
     </header>
   );
 }

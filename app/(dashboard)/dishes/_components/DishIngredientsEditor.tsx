@@ -38,10 +38,21 @@ export function DishIngredientsEditor({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">Ingredients</h3>
-        <Button type="button" variant="outline" size="sm" onClick={onAdd}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onAdd}
+          disabled={ingredientOptions.length === 0}
+        >
           <PlusCircle className="mr-2 h-4 w-4" /> Add
         </Button>
       </div>
+      {ingredientOptions.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          Add ingredients to your library before attaching them to the dish.
+        </p>
+      ) : null}
       <div className="space-y-4">
         {fields.map((field, index) => {
           const selection = watchedIngredients?.[index];
@@ -84,7 +95,7 @@ export function DishIngredientsEditor({
                   name={`ingredients.${index}.qtyPerServing` as const}
                   render={({ field: quantityField }) => (
                     <FormItem>
-                      <FormLabel>Qty per serving</FormLabel>
+                      <FormLabel>Quantity</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
