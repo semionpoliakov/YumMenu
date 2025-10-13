@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { useToggleShoppingListItem } from '@/data-access/hooks';
 
 import type { ShoppingListItemDto } from '@/contracts';
@@ -39,16 +40,21 @@ export function ShoppingListItemsTable({ listId, items }: ShoppingListItemsTable
                 {item.quantity} {item.unit}
               </p>
             </div>
-            <Button
-              size="sm"
-              variant={item.bought ? 'outline' : 'secondary'}
-              onClick={() => {
-                void handleToggle(item.id, !item.bought);
-              }}
-              disabled={toggleMutation.isPending}
+            <Label
+              htmlFor={`shopping-item-${item.id}-bought`}
+              className="flex items-center gap-2 text-sm font-semibold capitalize text-foreground"
             >
-              {item.bought ? 'Undo' : 'Bought'}
-            </Button>
+              <Checkbox
+                id={`shopping-item-${item.id}-bought`}
+                checked={item.bought}
+                onCheckedChange={(checked) => {
+                  void handleToggle(item.id, checked === true);
+                }}
+                aria-label="Bought"
+                disabled={toggleMutation.isPending}
+              />
+              bought
+            </Label>
           </CardContent>
         </Card>
       ))}

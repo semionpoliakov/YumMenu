@@ -54,7 +54,7 @@ export default function FridgePage() {
           {data.map((item) => (
             <Card
               key={item.id}
-              className="cursor-pointer transition hover:shadow-md"
+              className="cursor-pointer"
               onClick={() => router.push(`/fridge/${item.id}/edit`)}
             >
               <CardContent className="flex items-center justify-between">

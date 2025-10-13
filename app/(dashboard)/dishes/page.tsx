@@ -54,7 +54,7 @@ export default function DishesPage() {
           {data.map((dish) => (
             <Card
               key={dish.id}
-              className="cursor-pointer transition hover:shadow-md"
+              className="cursor-pointer"
               onClick={() => router.push(`/dishes/${dish.id}/edit`)}
             >
               <CardContent className="flex items-center justify-between">

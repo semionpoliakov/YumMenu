@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { useUpdateMenuItemCooked } from '@/data-access/hooks';
 import { mealTypeOptions } from '@/lib/enums';
 
@@ -43,19 +44,21 @@ export function MenuItemsTable({ menuId, items }: MenuItemsTableProps) {
                 {mealTypeLabel[item.mealType] ?? item.mealType}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant={item.cooked ? 'secondary' : 'outline'}
-                size="sm"
-                onClick={() => {
-                  void toggleCooked(item.id, !item.cooked);
+            <Label
+              htmlFor={`menu-item-${item.id}-cooked`}
+              className="flex items-center gap-2 text-sm font-semibold capitalize text-foreground"
+            >
+              <Checkbox
+                id={`menu-item-${item.id}-cooked`}
+                checked={item.cooked}
+                onCheckedChange={(checked) => {
+                  void toggleCooked(item.id, checked === true);
                 }}
-                aria-label={item.cooked ? 'Mark as not cooked' : 'Mark as cooked'}
+                aria-label="Cooked"
                 disabled={cookedMutation.isPending}
-              >
-                {item.cooked ? 'Undo' : 'Cooked'}
-              </Button>
-            </div>
+              />
+              cooked
+            </Label>
           </CardContent>
         </Card>
       ))}

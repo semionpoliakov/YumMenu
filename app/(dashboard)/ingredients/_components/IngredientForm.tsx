@@ -4,7 +4,9 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { z } from 'zod';
 
+import { FormActions } from '@/components/FormActions';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
   FormControl,
@@ -100,7 +102,7 @@ export function IngredientForm({ ingredient, onSuccess }: IngredientFormProps) {
         onSubmit={(event) => {
           void form.handleSubmit(onSubmit)(event);
         }}
-        className="space-y-6"
+        className="space-y-6 pb-16"
       >
         <FormField
           control={form.control}
@@ -146,17 +148,16 @@ export function IngredientForm({ ingredient, onSuccess }: IngredientFormProps) {
             <FormItem className="space-y-2">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <FormLabel className="text-sm font-medium">Available for dishes</FormLabel>
+                  <FormLabel className="text-sm font-medium">Available for dishes…</FormLabel>
                   <p className="text-xs text-muted-foreground">
                     Inactive ingredients are hidden when building dishes and menus.
                   </p>
                 </div>
                 <FormControl>
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border border-input accent-primary"
+                  <Checkbox
                     checked={field.value}
-                    onChange={(event) => field.onChange(event.target.checked)}
+                    onCheckedChange={(checked) => field.onChange(checked === true)}
+                    aria-label="Available for dishes"
                   />
                 </FormControl>
               </div>
@@ -165,19 +166,22 @@ export function IngredientForm({ ingredient, onSuccess }: IngredientFormProps) {
           )}
         />
 
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Saving...' : 'Save'}
-          </Button>
-        </div>
+        <FormActions>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <Button
+              className="h-12"
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button className="h-12" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        </FormActions>
       </form>
     </Form>
   );

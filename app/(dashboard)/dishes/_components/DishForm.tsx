@@ -5,7 +5,9 @@ import { useEffect, useMemo } from 'react';
 import { useFieldArray, type FieldError } from 'react-hook-form';
 import { z } from 'zod';
 
+import { FormActions } from '@/components/FormActions';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
   FormControl,
@@ -15,6 +17,13 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
   DishTag as DishTagSchema,
@@ -175,7 +184,7 @@ export function DishForm({ ingredients, dish, onSuccess }: DishFormProps) {
         onSubmit={(event) => {
           void form.handleSubmit(onSubmit)(event);
         }}
-        className="space-y-6"
+        className="space-y-6 pb-16"
       >
         <FormField
           control={form.control}
@@ -210,17 +219,18 @@ export function DishForm({ ingredients, dish, onSuccess }: DishFormProps) {
             <FormItem>
               <FormLabel>Meal type</FormLabel>
               <FormControl>
-                <select
-                  value={field.value}
-                  onChange={(event) => field.onChange(event.target.value)}
-                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {mealTypeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select meal type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mealTypeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -254,17 +264,16 @@ export function DishForm({ ingredients, dish, onSuccess }: DishFormProps) {
             <FormItem className="space-y-2">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <FormLabel className="text-sm font-medium">Use for generation</FormLabel>
+                  <FormLabel className="text-sm font-medium">Use for generation…</FormLabel>
                   <p className="text-xs text-muted-foreground">
                     Inactive dishes are excluded when creating menus.
                   </p>
                 </div>
                 <FormControl>
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border border-input accent-primary"
+                  <Checkbox
                     checked={field.value}
-                    onChange={(event) => field.onChange(event.target.checked)}
+                    onCheckedChange={(checked) => field.onChange(checked === true)}
+                    aria-label="Use for generation"
                   />
                 </FormControl>
               </div>
@@ -284,28 +293,36 @@ export function DishForm({ ingredients, dish, onSuccess }: DishFormProps) {
           <p className="text-xs font-medium text-destructive">{ingredientMessage}</p>
         ) : null}
 
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isSubmitting || ingredients.length === 0}>
-            {ingredients.length === 0
-              ? 'Add ingredients first'
-              : isSubmitting
-                ? 'Saving...'
-                : 'Save'}
-          </Button>
-        </div>
         {ingredients.length === 0 ? (
           <p className="text-xs text-muted-foreground">
             Add ingredients to your library before creating dishes.
           </p>
         ) : null}
+
+        <FormActions>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <Button
+              className="h-12"
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="h-12"
+              type="submit"
+              disabled={isSubmitting || ingredients.length === 0}
+            >
+              {ingredients.length === 0
+                ? 'Add ingredients first'
+                : isSubmitting
+                  ? 'Saving...'
+                  : 'Save'}
+            </Button>
+          </div>
+        </FormActions>
       </form>
     </Form>
   );

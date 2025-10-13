@@ -41,24 +41,21 @@ export default function MenuOptionsPage() {
         </Card>
       ) : menuQuery.data ? (
         <div className="space-y-3">
-          <Card
-            className="cursor-pointer transition hover:shadow-md"
-            onClick={() => router.push(`/menus/${menuId}`)}
-          >
-            <CardContent className="flex items-center justify-between">
+          <Card className="cursor-pointer" onClick={() => router.push(`/menus/${menuId}`)}>
+            <CardContent className="flex items-center justify-between py-5">
               <p className="font-medium">View dishes</p>
             </CardContent>
           </Card>
           <Card
-            className={shoppingListId ? 'cursor-pointer transition hover:shadow-md' : 'opacity-50'}
+            className={shoppingListId ? 'cursor-pointer' : 'opacity-50'}
             onClick={() => {
               if (shoppingListId) router.push(`/shopping-lists/${shoppingListId}`);
             }}
           >
-            <CardContent className="flex items-center justify-between">
+            <CardContent className="flex items-center justify-between py-5">
               <p className="font-medium">View shopping list</p>
               {!shoppingListId ? (
-                <span className="text-xs text-muted-foreground">List unavailable</span>
+                <span className="text-sm text-muted-foreground">List unavailable</span>
               ) : null}
             </CardContent>
           </Card>

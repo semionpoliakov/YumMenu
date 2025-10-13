@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 import { z } from 'zod';
 
+import { FormActions } from '@/components/FormActions';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -103,7 +104,7 @@ export function FridgeForm({ item, ingredients, onSuccess }: FridgeFormProps) {
         onSubmit={(event) => {
           void form.handleSubmit(onSubmit)(event);
         }}
-        className="space-y-6"
+        className="space-y-6 pb-16"
       >
         <FormField
           control={form.control}
@@ -159,25 +160,32 @@ export function FridgeForm({ item, ingredients, onSuccess }: FridgeFormProps) {
           )}
         />
 
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button type="submit" disabled={isSubmitting || (!isEdit && ingredients.length === 0)}>
-            {isSubmitting ? 'Saving...' : 'Save'}
-          </Button>
-        </div>
-
         {!isEdit && ingredients.length === 0 ? (
           <p className="text-xs text-muted-foreground">
             Add ingredients first to start filling the fridge.
           </p>
         ) : null}
+
+        <FormActions>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <Button
+              className="h-12"
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="h-12"
+              type="submit"
+              disabled={isSubmitting || (!isEdit && ingredients.length === 0)}
+            >
+              {isSubmitting ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        </FormActions>
       </form>
     </Form>
   );

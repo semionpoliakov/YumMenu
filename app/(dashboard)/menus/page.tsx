@@ -1,18 +1,23 @@
 'use client';
 
-import { ArrowRight } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
+import { AddFab } from '@/components/AddFab';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useMenusQuery } from '@/data-access/hooks';
+import { useDeleteMenu, useMenusQuery } from '@/data-access/hooks';
 import { cn } from '@/lib/utils';
 
 export default function MenusPage() {
   const router = useRouter();
   const { data, isLoading, error, refetch } = useMenusQuery();
+  const deleteMutation = useDeleteMenu();
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; name: string } | null>(null);
 
   const handleNavigate = (id: string, status: string) => {
     if (status === 'draft') {
@@ -20,6 +25,13 @@ export default function MenusPage() {
     } else {
       router.push(`/menus/${id}/options`);
     }
+  };
+
+  const handleDelete = async () => {
+    if (!pendingDelete) return;
+    await deleteMutation.mutateAsync(pendingDelete.id);
+    setPendingDelete(null);
+    void refetch();
   };
 
   return (
@@ -54,7 +66,7 @@ export default function MenusPage() {
               key={menu.id}
               onClick={() => handleNavigate(menu.id, menu.status)}
               className={cn(
-                'cursor-pointer transition hover:shadow-md',
+                'cursor-pointer',
                 menu.status === 'draft' && 'border-dashed opacity-75',
               )}
             >
@@ -65,17 +77,28 @@ export default function MenusPage() {
                     <span className="text-xs uppercase text-muted-foreground">Draft</span>
                   ) : null}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`Open ${menu.name}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleNavigate(menu.id, menu.status);
-                  }}
-                >
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Open ${menu.name}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleNavigate(menu.id, menu.status);
+                    }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Delete ${menu.name}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setPendingDelete({ id: menu.id, name: menu.name });
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -87,6 +110,24 @@ export default function MenusPage() {
           </CardContent>
         </Card>
       )}
+
+      <AddFab href="/generate" label="Generate menu" />
+
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+        title="Delete menu?"
+        description={
+          pendingDelete
+            ? `This will remove ${pendingDelete.name} and its shopping list.`
+            : undefined
+        }
+        confirmLabel="Delete"
+        loading={deleteMutation.isPending}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

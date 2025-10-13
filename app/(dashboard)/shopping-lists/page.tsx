@@ -53,7 +53,7 @@ export default function ShoppingListsPage() {
           {data.map((list) => (
             <Card
               key={list.id}
-              className="cursor-pointer transition hover:shadow-md"
+              className="cursor-pointer"
               onClick={() => router.push(`/shopping-lists/${list.id}`)}
             >
               <CardContent className="flex items-center justify-between">

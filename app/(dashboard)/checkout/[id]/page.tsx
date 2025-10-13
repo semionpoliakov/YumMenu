@@ -6,6 +6,8 @@ import { useMemo } from 'react';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   useLockMenuItems,
@@ -83,16 +85,21 @@ export default function CheckoutPage() {
                       {mealTypeLabel[item.mealType] ?? item.mealType}
                     </p>
                   </div>
-                  <Button
-                    variant={item.locked ? 'secondary' : 'outline'}
-                    size="sm"
-                    onClick={() => {
-                      void handleToggleLock(item.id, !item.locked);
-                    }}
-                    disabled={lockMutation.isPending}
+                  <Label
+                    htmlFor={`checkout-item-${item.id}-locked`}
+                    className="flex items-center gap-2 text-sm font-semibold capitalize text-foreground"
                   >
-                    {item.locked ? 'Unlock' : 'Lock'}
-                  </Button>
+                    <Checkbox
+                      id={`checkout-item-${item.id}-locked`}
+                      checked={item.locked}
+                      onCheckedChange={(checked) => {
+                        void handleToggleLock(item.id, checked === true);
+                      }}
+                      aria-label="Locked"
+                      disabled={lockMutation.isPending}
+                    />
+                    locked
+                  </Label>
                 </CardContent>
               </Card>
             ))}

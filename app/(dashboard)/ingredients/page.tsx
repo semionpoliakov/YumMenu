@@ -54,16 +54,11 @@ export default function IngredientsPage() {
           {data.map((ingredient) => (
             <Card
               key={ingredient.id}
-              className="cursor-pointer transition hover:shadow-md"
+              className="cursor-pointer"
               onClick={() => router.push(`/ingredients/${ingredient.id}/edit`)}
             >
               <CardContent className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">{ingredient.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {ingredient.unit.toUpperCase()} · {ingredient.isActive ? 'Available' : 'Hidden'}
-                  </p>
-                </div>
+                <p className="font-medium">{ingredient.name}</p>
                 <Button
                   variant="ghost"
                   size="icon"
