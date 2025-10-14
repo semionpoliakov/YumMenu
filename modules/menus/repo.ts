@@ -373,10 +373,12 @@ export const menusRepository = {
 
   async deleteShoppingList(client: DbOrTx, menuId: string): Promise<void> {
     const dbClient = getClient(client);
-    const shoppingListRow = await db.query.shoppingLists.findFirst({
-      where: eq(shoppingLists.menuId, menuId),
-    });
-    if (!shoppingListRow) {
+    const [shoppingListRow] = await dbClient
+      .select({ id: shoppingLists.id })
+      .from(shoppingLists)
+      .where(eq(shoppingLists.menuId, menuId))
+      .limit(1);
+    if (!shoppingListRow?.id) {
       return;
     }
     await dbClient

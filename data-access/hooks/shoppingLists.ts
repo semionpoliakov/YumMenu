@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '@/data-access/client';
-import { MENUS_KEY, SHOPPING_LIST_KEY, SHOPPING_LISTS_KEY } from '@/data-access/query-keys';
+import { SHOPPING_LIST_KEY, SHOPPING_LISTS_KEY } from '@/data-access/query-keys';
 import { unwrap } from '@/data-access/utils';
 import { showApiErrorToast, showSuccessToast } from '@/lib/toast';
 
@@ -61,29 +61,6 @@ export const useToggleShoppingListItem = (listId: string) => {
     },
     onError: (error) => {
       showApiErrorToast(error, 'Failed to update shopping list item');
-    },
-  });
-};
-
-export const useDeleteShoppingList = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const response = await apiClient.shoppingLists.delete({
-        params: { id },
-      } as Parameters<typeof apiClient.shoppingLists.delete>[0]);
-      unwrap<null>(response, [204]);
-      return id;
-    },
-    onSuccess: (id) => {
-      void queryClient.invalidateQueries({ queryKey: SHOPPING_LISTS_KEY });
-      void queryClient.removeQueries({ queryKey: SHOPPING_LIST_KEY(id) });
-      void queryClient.invalidateQueries({ queryKey: MENUS_KEY });
-      showSuccessToast('Shopping list deleted');
-    },
-    onError: (error) => {
-      showApiErrorToast(error, 'Failed to delete shopping list');
     },
   });
 };

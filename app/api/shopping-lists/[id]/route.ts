@@ -6,7 +6,3 @@ export const runtime = 'nodejs';
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   return handleJson(() => shoppingListsController.get(request, params));
 }
-
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  return handleJson(() => shoppingListsController.delete(request, params), 204);
-}

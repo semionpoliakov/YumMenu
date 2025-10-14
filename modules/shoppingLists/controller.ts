@@ -28,8 +28,4 @@ export const shoppingListsController = {
     const body = await parseBody(request, updateItemBodySchema);
     return shoppingListsService.updateItem(params.id, params.itemId, body.bought);
   },
-
-  async delete(_request: Request, params: { id: string }): Promise<void> {
-    await shoppingListsService.delete(params.id);
-  },
 };

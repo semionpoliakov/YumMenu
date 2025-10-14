@@ -534,14 +534,6 @@ export const contracts = c.router({
         404: ErrorResponse,
       },
     },
-    delete: {
-      method: 'DELETE',
-      path: '/api/shopping-lists/:id',
-      responses: {
-        204: z.null(),
-        404: ErrorResponse,
-      },
-    },
   }),
 });
 
